@@ -24,6 +24,10 @@
    that are ready to run but not actually running. */
 static struct list ready_list;
 
+/* List of sleeping proccesses in THREAD_BLOCKED state, which are
+   waiting for a timer to run out. */
+static struct list sleep_list;
+
 /* List of all processes.  Processes are added to this list
    when they are first scheduled and removed when they exit. */
 static struct list all_list;
@@ -98,6 +102,7 @@ thread_init (void)
   init_thread (initial_thread, "main", PRI_DEFAULT);
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid ();
+  initial_thread->sleep_ticks = 0;
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -202,6 +207,17 @@ thread_create (const char *name, int priority,
   thread_unblock (t);
 
   return tid;
+}
+
+/* Puts the current thread to sleep. And starts a timer to
+   wake it up when it was sleeping for ticks Ticks.*/
+void
+thread_sleep (int64_t ticks) 
+{
+  sleep_ticks = ticks;
+  struct thread *cur = running_thread ();
+  list_push_back(&sleep_list, &cur->elem);
+  thread_block();
 }
 
 /* Puts the current thread to sleep.  It will not be scheduled
@@ -559,6 +575,16 @@ schedule (void)
   ASSERT (intr_get_level () == INTR_OFF);
   ASSERT (cur->status != THREAD_RUNNING);
   ASSERT (is_thread (next));
+
+  struct thread *iter_thread = sleep_list->head;
+  while (iter_thread != NULL){
+    if (iter_thread->sleep_ticks <= 0){
+      iter_thread.unblock();
+      iter_thread = sleep_list.list_remove(iter_thread)
+    }else{
+      iter_thread = iter_thread.next();
+    }
+  }
 
   if (cur != next)
     prev = switch_threads (cur, next);
