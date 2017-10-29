@@ -24,10 +24,6 @@
    that are ready to run but not actually running. */
 static struct list ready_list;
 
-/* List of sleeping proccesses in THREAD_BLOCKED state, which are
-   waiting for a timer to run out. */
-static struct list sleep_list;
-
 /* List of all processes.  Processes are added to this list
    when they are first scheduled and removed when they exit. */
 static struct list all_list;
@@ -102,7 +98,7 @@ thread_init (void)
   init_thread (initial_thread, "main", PRI_DEFAULT);
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid ();
-  initial_thread->sleep_ticks = 0;
+  initial_thread->sleep_ticks = -1;
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -203,6 +199,7 @@ thread_create (const char *name, int priority,
   sf->eip = switch_entry;
   sf->ebp = 0;
 
+  t->sleep_ticks = -1;
   /* Add to run queue. */
   thread_unblock (t);
 
@@ -214,9 +211,7 @@ thread_create (const char *name, int priority,
 void
 thread_sleep (int64_t ticks) 
 {
-  sleep_ticks = ticks;
-  struct thread *cur = running_thread ();
-  list_push_back(&sleep_list, &cur->elem);
+  thread_current ()->sleep_ticks = ticks;
   thread_block();
 }
 
@@ -479,6 +474,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
+  t->sleep_ticks = -1;
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
@@ -558,6 +554,21 @@ thread_schedule_tail (struct thread *prev)
     }
 }
 
+/* TODO I will decrement in this function for now, this should be done elsewhere! */
+/* wakes up thread if he has slept for long enough */
+void wake_sleeping(struct thread *t, void *aux)
+{
+  if (t->sleep_ticks == 0){
+    thread_unblock(t);
+  }
+  //else if (t->sleep_ticks > 0){
+  //  t->sleep_ticks = t->sleep_ticks - TIME_SLICE;
+  //  if (t->sleep_ticks < 0)
+  //    t->sleep_ticks = 0;
+  //}
+}
+
+
 /* Schedules a new process.  At entry, interrupts must be off and
    the running process's state must have been changed from
    running to some other state.  This function finds another
@@ -576,15 +587,7 @@ schedule (void)
   ASSERT (cur->status != THREAD_RUNNING);
   ASSERT (is_thread (next));
 
-  struct thread *iter_thread = sleep_list->head;
-  while (iter_thread != NULL){
-    if (iter_thread->sleep_ticks <= 0){
-      iter_thread.unblock();
-      iter_thread = sleep_list.list_remove(iter_thread)
-    }else{
-      iter_thread = iter_thread.next();
-    }
-  }
+  thread_foreach (wake_sleeping,0);
 
   if (cur != next)
     prev = switch_threads (cur, next);
