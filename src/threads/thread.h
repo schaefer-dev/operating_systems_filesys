@@ -94,7 +94,7 @@ struct thread
     struct list_elem elem;              /* List element. */
 
     /* # the number of ticks the thread has to sleep before continuing */
-    int64_t sleep_ticks;
+    int64_t wakeup_tick;
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */

@@ -98,7 +98,7 @@ thread_init (void)
   init_thread (initial_thread, "main", PRI_DEFAULT);
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid ();
-  initial_thread->sleep_ticks = -1;
+  initial_thread->wakeup_tick = -1;
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -199,7 +199,7 @@ thread_create (const char *name, int priority,
   sf->eip = switch_entry;
   sf->ebp = 0;
 
-  t->sleep_ticks = -1;
+  t->wakeup_tick = -1;
   /* Add to run queue. */
   thread_unblock (t);
 
@@ -211,8 +211,10 @@ thread_create (const char *name, int priority,
 void
 thread_sleep (int64_t ticks) 
 {
-  thread_current ()->sleep_ticks = ticks;
+  enum intr_level old_level = intr_disable ();
+  thread_current ()->wakeup_tick = ticks;
   thread_block();
+  intr_set_level (old_level);
 }
 
 /* Puts the current thread to sleep.  It will not be scheduled
@@ -474,7 +476,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
-  t->sleep_ticks = -1;
+  t->wakeup_tick = -1;
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
@@ -554,18 +556,19 @@ thread_schedule_tail (struct thread *prev)
     }
 }
 
-/* TODO I will decrement in this function for now, this should be done elsewhere! */
 /* wakes up thread if he has slept for long enough */
 void wake_sleeping(struct thread *t, void *aux)
 {
-  if (t->sleep_ticks == 0){
-    thread_unblock(t);
+  // should only be called in schedule() with INTR_OFF
+  ASSERT (intr_get_level () == INTR_OFF);
+
+  if (t->wakeup_tick > -1){
+    int64_t current_tick = timer_ticks();
+    if (current_tick <= t->wakeup_tick){
+	thread_unblock(t);
+	t->wakeup_tick = -1;
+    }
   }
-  //else if (t->sleep_ticks > 0){
-  //  t->sleep_ticks = t->sleep_ticks - TIME_SLICE;
-  //  if (t->sleep_ticks < 0)
-  //    t->sleep_ticks = 0;
-  //}
 }
 
 
