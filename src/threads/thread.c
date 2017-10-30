@@ -564,7 +564,7 @@ void wake_sleeping(struct thread *t, void *aux)
 
   if (t->wakeup_tick > -1){
     int64_t current_tick = timer_ticks();
-    if (current_tick <= t->wakeup_tick){
+    if (current_tick >= t->wakeup_tick){
 	thread_unblock(t);
 	t->wakeup_tick = -1;
     }
