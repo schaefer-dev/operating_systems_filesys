@@ -82,6 +82,11 @@ void consumer(void *aux){
 
 void producer_consumer(UNUSED unsigned int num_producer, UNUSED unsigned int num_consumer)
 {
+  // initialize lock
+  lock_init(&mutex);
+  // initialize condition variables
+  cond_init(&not_full);
+  cond_init(&not_empty);
   // struct thread producer_array[num_producer];
   unsigned int i=0;
   for (i=0; i<num_producer; i++){
