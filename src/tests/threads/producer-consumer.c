@@ -48,7 +48,7 @@ struct lock mutex;
 
 void producer(void *aux){
   char text[11];
-  strlcpy(text, "Hello world",11);
+  strlcpy(text, "Hello world",12);
   int i=0;
   for (i=0; i<11; i++){
     lock_acquire(&mutex);
