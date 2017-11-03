@@ -33,6 +33,29 @@ void test_narrow_bridge(void)
     pass();
 }
 
+// maximal possible number of vehicles on the bridge at the same time
+int max_bridge_capacity = 3;
+// current number of vehicles on the bridge
+int vehicles_on_bridge=0;
+// number of normal vehicles waiting on the left hand side of the bridge
+int waiting_left = 0;
+// number of emergency vehicles waiting on the left hand side of the bridge
+int waiting_emergency_left = 0;
+// number of normal vehicles waiting on the right hand side of the bridge
+int waiting_right = 0;
+// number of emergency vehicles waiting on the right hand side of the bridge
+int waiting_emergency_right = 0;
+
+// semaphore to update variables safely
+struct semaphore lock;
+// semaphore to indicate that a vehicle on the left can drive
+struct semaphore vehicle_left;
+// semaphore to indicate that a emergency vehicle on the left can drive
+struct semaphore emergency_left;
+// semaphore to indicate that a vehicle on the right can drive
+struct semaphore vehicle_right;
+// semaphore to indicate that a emergency vehicle on the right can drive
+struct semaphore emergency_right;
 
 void narrow_bridge(UNUSED unsigned int num_vehicles_left, UNUSED unsigned int num_vehicles_right,
         UNUSED unsigned int num_emergency_left, UNUSED unsigned int num_emergency_right)
