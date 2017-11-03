@@ -57,6 +57,8 @@ struct semaphore vehicle_right;
 // semaphore to indicate that a emergency vehicle on the right can drive
 struct semaphore emergency_right;
 
+/*TODO: add a variable (probably bool) to indicate the turn e.g. "right_turn" */
+
 void narrow_bridge(UNUSED unsigned int num_vehicles_left, UNUSED unsigned int num_vehicles_right,
         UNUSED unsigned int num_emergency_left, UNUSED unsigned int num_emergency_right)
 {
