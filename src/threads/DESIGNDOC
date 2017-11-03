@@ -29,6 +29,8 @@ Christian Bohnenberger <s9cnbohn@stud.uni-saarland.de>
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+Explain the new sleep_ticks field
+
 ---- ALGORITHMS ----
 
 >> A2: Briefly describe what happens in a call to timer_sleep(),
@@ -36,6 +38,8 @@ Christian Bohnenberger <s9cnbohn@stud.uni-saarland.de>
 
 >> A3: What steps are taken to minimize the amount of time spent in
 >> the timer interrupt handler?
+
+save the exact tick at which a thread is being woken up on
 
 ---- SYNCHRONIZATION ----
 
@@ -49,6 +53,8 @@ Christian Bohnenberger <s9cnbohn@stud.uni-saarland.de>
 
 >> A6: Why did you choose this design?  In what ways is it superior to
 >> another design you considered?
+
+compare with linked list design of sleeping threads list
 
 
     		     PROD/CONS
