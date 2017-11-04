@@ -7,6 +7,7 @@
 #include "threads/malloc.h"
 #include "threads/synch.h"
 #include "threads/thread.h"
+#include "devices/timer.h"
 
 
 void narrow_bridge(unsigned int num_vehicles_left, unsigned int num_vehicles_right,
@@ -58,25 +59,22 @@ struct semaphore emergency_left;
 struct semaphore vehicle_right;
 // semaphore to indicate that a emergency vehicle on the right can drive
 struct semaphore emergency_right;
-// simulated condition variable
-struct semaphore cars_can_drive;
-struct 
 
 /*TODO: add a variable (probably bool) to indicate the turn e.g. "right_turn" */
 
 void narrow_bridge(UNUSED unsigned int num_vehicles_left, UNUSED unsigned int num_vehicles_right,
         UNUSED unsigned int num_emergency_left, UNUSED unsigned int num_emergency_right)
 {
-  waiting_left = num_vehicles_left;
-  waiting_right = num_vehicles_right;
-  waiting_emergency_left = num_emergency_left;
-  waiting_emergency_right = num_emergency_right;
+  waiting_left = 0;
+  waiting_right = 0;
+  waiting_emergency_left = 0;
+  waiting_emergency_right = 0;
   
-  sema_init(&vehicle_left,3);
-  sema_init(&vehicle_right,3);
-  sema_init(&emergeny_left,3);
-  sema_init(&emergency_right,3);
-  sema_init(&mutex,1);
+  sema_init(&vehicle_left, 3);
+  sema_init(&vehicle_right, 3);
+  sema_init(&emergeny_left, 3);
+  sema_init(&emergency_right, 3);
+  sema_init(&mutex, 1);
 
   // TODO
 }
@@ -87,17 +85,111 @@ void OneVehicle(int direc, int prio){
   ExitBridge(direc, prio);
 }
 
-ArriveBridge_car(unsigned int direc){
-  sema_down(mutex);
+void ArriveBridge_car(unsigned int direc){
+  sema_down(&mutex);
+  if (direc == 0){
+    waiting_left += 1;
+  }else{
+    waiting_right += 1;
+  }
+  
+  // case for emergency vehicles still driving -> waiting
+  if (waiting_emergency_right + waiting_emergency_left + emergency_on_bridge > 0){
+    sema_up(&mutex);
+    if (direc == 0){
+      sema_down(&vehicles_can_drive_left);
+      sema_up(&vehicles_can_drive_left);
+    }else{
+      sema_down(&vehicles_can_drive_right);
+      sema_up(&vehicles_can_drive_right);
+    }
+    sema_down(&mutex);
+  }
+
+  // case for cars vehicles still driving -> waiting
+  if (vehicles_on_bridge != 0 | vehicles_on_bridge_dir != direc){
+    sema_up(&mutex);
+    if (direc == 0){
+      sema_down(&vehicles_can_drive_left);
+      sema_up(&vehicles_can_drive_left);
+    }else{
+      sema_down(&vehicles_can_drive_right);
+      sema_up(&vehicles_can_drive_right);
+    }
+  }else{
+    sema_up(&mutex);
+  }
+  
+  // vehicles can finally drive
+  if (direc == 0){
+    sema_down(&vehicle_left);
+    sema_down(&vehicle_can_drive_left);
+    sema_up(&vehicle_can_drive_left);
+
+    vehicles_on_brigdge_dir = direc;
+    vehicles_on_bridge += 1;
+    waiting_left -= 1;
+  }else{
+    sema_down(&vehicle_right);
+    sema_down(&vehicle_can_drive_right);
+    sema_up(&vehicle_can_drive_right);
+
+
+    vehicles_on_brigdge_dir = direc;
+    vehicles_on_bridge += 1;
+    waiting_right -= 1;
+  }
+  sema_up(&mutex);
+}
+
+void ExitBridge_car(unsigned int direc){
+  sema_down(&mutex);
+
+  vehicles_on_bridge -= 1;
+
+  if (direc == 0){
+    sema_up(&vehicle_left);
+  } else {
+    sema_up(&vehicle_right);
+  }
+
+  if (waiting_emergency_left + waiting_emergency_right > 0){
+
+  }
+
+  if (vehicles_on_bridge == 0){
+
+  }
+  sema_up(&mutex);
+}
+
+
+void ArriveBridge_emergency(unsigned int direc){
+  sema_down(&mutex);
+
+  if (direc == 0){
+    waiting_emergency_left += 1;
+  }else{
+    waiting_emergency_right += 1;
+  }
+  if 
+
+
 
 }
 
 void ArriveBridge(unsigned int direc, unsigned int prio){
   // TODO
 }
+
 void CrossBridge(unsigned int direc, unsigned int prio){
-  // TODO
+  int id = rand();
+  printf("X Vehicle with prio %u and direction %u entered bridge (DEBUG_ID=%i)\n", direc, prio, id);
+  int r = rand() % 2000;
+  timer_msleep(r);
+  printf("O Vehicle with prio %u and direction %u left bridge (DEBUG_ID=%i)\n", direc, prio, id);
 }
+
 void ExitBridge(unsigned int direc, unsigned int prio){
   // TODO
 }

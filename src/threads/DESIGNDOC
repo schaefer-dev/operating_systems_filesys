@@ -65,18 +65,60 @@ compare with linked list design of sleeping threads list
 >> B1: How does your solution guarantee that consumers will hold until
 >> there is something to consume in the buffer?
 
+The condition `not_empty` is only true if at least one element is contained
+in the buffer, which could be consumed. Every consumer waits until this
+condition is fullfilled, which means that he has an element to consume.
+This has to be done in a while loop, because he does not neccessarily "get"
+the next element which is being inserted, because other consumers might
+consume the element first (happens e.g. if a new consumer thread is created
+and consumes the new element right away, so after the condition is signaled it
+might still be the case that the elment was already consumed by somebody else).
+Every addition to the buffer, produced by a producer will trigger a signal
+on the condition `not_empty`, which will "wake up" one consumer which is
+waiting for this condition to consume this element (unless it was already
+consumed as mentioned above).
+
 >> B2: How does your solution guarantee that producers will hold until
 >> there is some free space in the buffer?
 
+Just like the consumer, if the buffer is currently filled, the producer will
+wait for a condition `not_full`. This condition
+will be signaled by a consumer if he consumes one of the currently contained
+elements in the buffer.
+One of the waiting producers will be woken up by this signal and after checking if
+nobody already filled this free space (condition of the while loop), he can
+produce a new element. 
+
 >> B3: How does your solution preserve a FIFO semantics i.e., the first
 >> character produced will be the first to be consumed?
+
+By tracking the next value to be consumed using the variable `read_index` which
+points to the next value in the buffer to be read. Every output increments this
+index by one, unless we are at the last element of the buffer, in which case we
+move read_index to the first element of the buffer (modulo by buffersize). We
+can only consume a element if we stored something in the buffer (see explanation
+for consume above). Both the index for reading and writing starts with 0 and is
+only incremented in a respective read/write process. Because both reading and
+writing index are only incremented (modulo buffersize) when we read/write a
+element in exactly the same way, we can guarantee FIFO behaviour.
 
 ---- RATIONALE ----
 
 >> B4: Give an intuition for why your program preserves safety.
 
+Our Software uses a lock which guarantees that no data-races occur. This means
+that no read+output and write can happen "at the same time". Additionally
+we are only able to consume elements, if something to consume was inserted in
+the first place (reasoning see above) and also we can only insert elements to
+the buffer if there is free space for it. This guarantees that no elements are
+overwritten and lost (see condition variables + condition in while loop).
+
 >> B5: Why did you choose this design? Did you consider other design 
 >> alternatives? In what ways is it superior to another design you considered?
+
+With a monitor and condition variable the task was very easy to complete in
+exactly the way we did. Condition variables are made for exactly this task
+of signaling a "free space" in the buffer or a "consumable element".
 
 
 			     NARROW BRIDGE
