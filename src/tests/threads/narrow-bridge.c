@@ -194,7 +194,7 @@ void ArriveBridge_emergency(unsigned int direc){
     // emergency on the left side case:
     if ((driving_emergency_left < max_bridge_capacity) &&
         (driving_emergency_right + waiting_emergency_right == 0) &&
-        (driving_car_right + driving_car_left == 0)) 
+        (driving_right + driving_left == 0)) 
     {
       // Generate ticket for one of the emergencies on the left side
       driving_emergency_left += 1;
@@ -210,8 +210,8 @@ void ArriveBridge_emergency(unsigned int direc){
   }else{
     // emergency on the right side case:
     if ((driving_emergency_right < max_bridge_capacity) &&
-        (driving_emergency_left + waiting_emergency_left == 0)
-        (driving_car_right + driving_car_left == 0)) 
+        (driving_emergency_left + waiting_emergency_left == 0) &&
+        (driving_right + driving_left == 0)) 
     {
       // Generate ticket for one of the emergencies on the right side
       driving_emergency_right += 1;
@@ -453,4 +453,48 @@ void narrow_bridge(UNUSED unsigned int num_vehicles_left, UNUSED unsigned int nu
   for (i=0; i<num_emergency_right; i++){
     thread_create("rightEmergency_" + (char)i, 0, &OneVehicle, &argument_right_emergency);
   }
+
+  timer_msleep(1000);
+  timer_msleep(1000);
+  timer_msleep(1000);
+  timer_msleep(1000);
+  timer_msleep(1000);
+  timer_msleep(1000);
+  timer_msleep(1000);
+  timer_msleep(1000);
+  timer_msleep(1000);
+  timer_msleep(1000);
+  timer_msleep(1000);
+  timer_msleep(1000);
+  timer_msleep(1000);
+  timer_msleep(1000);
+  timer_msleep(1000);
+  timer_msleep(1000);
+  timer_msleep(1000);
+  timer_msleep(1000);
+  timer_msleep(1000);
+  timer_msleep(1000);
+  timer_msleep(1000);
+  timer_msleep(1000);
+  timer_msleep(1000);
+  timer_msleep(1000);
+  timer_msleep(1000);
+  timer_msleep(1000);
+  timer_msleep(1000);
+  timer_msleep(1000);
+  timer_msleep(1000);
+  timer_msleep(1000);
+  timer_msleep(1000);
+  timer_msleep(1000);
+  timer_msleep(1000);
+  timer_msleep(1000);
+  timer_msleep(1000);
+  timer_msleep(1000);
+  timer_msleep(1000);
+  timer_msleep(1000);
+  timer_msleep(1000);
+  timer_msleep(1000);
+  timer_msleep(1000);
+  timer_msleep(1000);
+  timer_msleep(1000);
 }
