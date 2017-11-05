@@ -128,7 +128,7 @@ void ExitBridge_car(unsigned int direc){
       // and there are waiting cars on the other side
       // -> wake up up to 3 cars from the other side
       int i = 0;
-      while ((i < 3) && (waiting_right > 0)){
+      while ((i < max_bridge_capacity) && (waiting_right > 0)){
         driving_right += 1;
         waiting_right -= 1;
         sema_up(ticket_right);
@@ -153,7 +153,7 @@ void ExitBridge_car(unsigned int direc){
       // and there are waiting cars on the other side
       // -> wake up up to 3 cars from the other side
       int i = 0;
-      while ((i < 3) && (waiting_left > 0)){
+      while ((i < max_bridge_capacity) && (waiting_left > 0)){
         driving_left += 1;
         waiting_left -= 1;
         sema_up(ticket_left);
