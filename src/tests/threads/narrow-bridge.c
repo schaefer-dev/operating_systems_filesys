@@ -89,7 +89,10 @@ void ArriveBridge_car(unsigned int direc){
 
   if (direc == 0){
     // vehicle on the left side case:
-    if ((driving_left < max_bridge_capacity) && (driving_right + waiting_right == 0)){
+    if ((driving_left < max_bridge_capacity) &&
+        (driving_right + waiting_right == 0) &&
+        (waiting_emergency_left + waiting_emergency_right == 0)) 
+      {
       // Generate ticket for one of the cars on the left side
       driving_left += 1;
       sema_up(&ticket_left);
@@ -98,12 +101,15 @@ void ArriveBridge_car(unsigned int direc){
       waiting_left += 1;
     }
     sema_up(&mutex);
-    // start driving if a ticket on this side is available
+    // start driving if a ticket on this side becomes available
     sema_down(&ticket_left);
 
   }else{
     // Vehicle on the right side case:
-    if ((driving_right < max_bridge_capacity) && (driving_right + waiting_right == 0)){
+    if ((driving_right < max_bridge_capacity) &&
+        (driving_left + waiting_left == 0) &&
+        (waiting_emergency_left + waiting_emergency_right == 0)) 
+      {
       // Generate ticket for one of the cars on the right side
       driving_right += 1;
       sema_up(&ticket_right);
@@ -112,7 +118,7 @@ void ArriveBridge_car(unsigned int direc){
       waiting_right += 1;
     }
     sema_up(&mutex);
-    // start driving if a ticket on this side is available
+    // start driving if a ticket on this side becomes available
     sema_down(&ticket_right);
   }
 }
@@ -123,57 +129,146 @@ void ExitBridge_car(unsigned int direc){
   if (direc == 0){
     // Vehicle coming from the left side case:
     driving_left -= 1;
-    if ((driving_left == 0) && (waiting_right > 0)){
-      // Vehicle was the last driving car from the left
-      // and there are waiting cars on the other side
-      // -> wake up up to 3 cars from the other side
-      int i = 0;
-      while ((i < max_bridge_capacity) && (waiting_right > 0)){
-        driving_right += 1;
-        waiting_right -= 1;
-        sema_up(&ticket_right);
-        i += 1;
+    if (waiting_emergency_right + waiting_emergency_left > 0){
+      // case if there are emergency vehicles waiting
+      if (waiting_emergency_right > waiting_emergency_left){
+        // more emergencys waiting on the right side: wake them up
+        // if possible!
+        if (driving_left == 0){
+          int i = 0;
+          while ((i < max_bridge_capacity) && (waiting_emergency_right > 0)){
+            driving_emergency_right += 1;
+            waiting_emergency_right -= 1;
+            sema_up(&ticket_emergency_right);
+            i += 1;
+          }
+        }
+      }else{
+        // more emergencies waiting on the left side: wake them up
+        // if possible!
+        if (driving_left == 0){
+          int i = 0;
+          while ((i < max_bridge_capacity) && (waiting_emergency_left > 0)){
+            driving_emergency_left += 1;
+            waiting_emergency_left -= 1;
+            sema_up(&ticket_emergency_left);
+            i += 1;
+          }
+        }
       }
-    } else{
-      // Vehicle was not the last car driving from the left
-      // or there are no cars waiting on the other side
-      if ((waiting_left > 0) && (waiting_right == 0)){
-        // if there are cars waiting on the same side just let
-        // one of them go through
-        sema_up(&ticket_left);
-        driving_left += 1;
-        waiting_left -= 1;
+
+    }else{
+      // case if no emergency vehicles are waiting
+      if ((driving_left == 0) && (waiting_right > 0)){
+        // Vehicle was the last driving car from the left
+        // and there are waiting cars on the other side
+        // -> wake up up to 3 cars from the other side
+        int i = 0;
+        while ((i < max_bridge_capacity) && (waiting_right > 0)){
+          driving_right += 1;
+          waiting_right -= 1;
+          sema_up(&ticket_right);
+          i += 1;
+        }
+      } else{
+        // Vehicle was not the last car driving from the left
+        // or there are no cars waiting on the other side
+        if ((waiting_left > 0) && (waiting_right == 0)){
+          // if there are cars waiting on the same side just let
+          // one of them go through
+          sema_up(&ticket_left);
+          driving_left += 1;
+          waiting_left -= 1;
+        }
       }
     }
   }else{
     // Vehicle coming from the right side case:
     driving_right -= 1;
-    if ((driving_right == 0) && (waiting_left > 0)){
-      // Vehicle was the last driving car from the right
-      // and there are waiting cars on the other side
-      // -> wake up up to 3 cars from the other side
-      int i = 0;
-      while ((i < max_bridge_capacity) && (waiting_left > 0)){
-        driving_left += 1;
-        waiting_left -= 1;
-        sema_up(&ticket_left);
-        i += 1;
+    if (waiting_emergency_right + waiting_emergency_left > 0){
+      // case if there are emergency vehicles waiting
+      if (waiting_emergency_right > waiting_emergency_left){
+        // more emergencys waiting on the right side: wake them up
+        // if possible!
+        if (driving_right == 0){
+          int i = 0;
+          while ((i < max_bridge_capacity) && (waiting_emergency_right > 0)){
+            driving_emergency_right += 1;
+            waiting_emergency_right -= 1;
+            sema_up(&ticket_emergency_right);
+            i += 1;
+          }
+        }
+      }else{
+        // more emergencies waiting on the left side: wake them up
+        // if possible!
+        if (driving_right == 0){
+          int i = 0;
+          while ((i < max_bridge_capacity) && (waiting_emergency_left > 0)){
+            driving_emergency_left += 1;
+            waiting_emergency_left -= 1;
+            sema_up(&ticket_emergency_left);
+            i += 1;
+          }
+        }
       }
-    } else{
-      // Vehicle was not the last car driving from the right
-      // or there are no cars waiting on the other side
-      if ((waiting_right > 0) && (waiting_left == 0)){
-        // if there are cars waiting on the same side just let
-        // one of them go through
-        sema_up(&ticket_right);
-        driving_right += 1;
-        waiting_right -= 1;
+    }else{
+      if ((driving_right == 0) && (waiting_left > 0)){
+        // Vehicle was the last driving car from the right
+        // and there are waiting cars on the other side
+        // -> wake up up to 3 cars from the other side
+        int i = 0;
+        while ((i < max_bridge_capacity) && (waiting_left > 0)){
+          driving_left += 1;
+          waiting_left -= 1;
+          sema_up(ticket_left);
+          i += 1;
+        }
+      } else{
+        // Vehicle was not the last car driving from the right
+        // or there are no cars waiting on the other side
+        if ((waiting_right > 0) && (waiting_left == 0)){
+          // if there are cars waiting on the same side just let
+          // one of them go through
+          sema_up(ticket_right);
+          driving_right += 1;
+          waiting_right -= 1;
+        }
       }
-    }
 
   }
   sema_up(&mutex);
 }
+
+void WakeUp_emergencies(){
+  ASSERT(driving_left == 0);
+  ASSERT(driving_right == 0);
+
+  if (waiting_emergency_right + waiting_emergency_left > 0){
+    // case if there are emergency vehicles waiting
+    if (waiting_emergency_right > waiting_emergency_left){
+      // more emergencys waiting on the right side: wake them up
+      // if possible!
+      int i = 0;
+      while ((i < max_bridge_capacity) && (waiting_emergency_right > 0)){
+        driving_emergency_right += 1;
+        waiting_emergency_right -= 1;
+        sema_up(&ticket_emergency_right);
+        i += 1;
+      }
+    }else{
+      // more emergencies waiting on the left side: wake them up
+      // if possible!
+      int i = 0;
+      while ((i < max_bridge_capacity) && (waiting_emergency_left > 0)){
+        driving_emergency_left += 1;
+        waiting_emergency_left -= 1;
+        sema_up(&ticket_emergency_left);
+        i += 1;
+      }
+    }
+  }
+}     
 
 
 void ArriveBridge_emergency(unsigned int direc){
