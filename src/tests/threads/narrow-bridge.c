@@ -129,7 +129,7 @@ void ExitBridge_car(unsigned int direc){
   if (direc == 0){
     // Vehicle coming from the left side case:
     driving_left -= 1;
-    if ((waiting_emergency_right + waiting_emergency_left > 0){
+    if (waiting_emergency_right + waiting_emergency_left > 0){
         // case if there are emergency vehicles waiting -> just exit
         if (driving_left == 0){
           // case if there are emergency vehicles waiting and last car exited
@@ -163,7 +163,7 @@ void ExitBridge_car(unsigned int direc){
   }else{
     // Vehicle coming from the right side case:
     driving_right -= 1;
-    if ((waiting_emergency_right + waiting_emergency_left > 0){
+    if (waiting_emergency_right + waiting_emergency_left > 0){
       // case if there are emergency vehicles waiting -> just exit
         if (driving_right == 0){
           // case if there are emergency vehicles waiting and last car exited
