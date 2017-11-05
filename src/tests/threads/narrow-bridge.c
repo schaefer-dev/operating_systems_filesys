@@ -392,13 +392,13 @@ void ArriveBridge(unsigned int direc, unsigned int prio){
 void CrossBridge(unsigned int direc, unsigned int prio){
   int random_id;
   random_bytes(&random_id, sizeof random_id);
-  printf("X Vehicle with prio %u and direction %u entered bridge (DEBUG_ID=%i)\n", direc, prio, id);
+  printf("X Vehicle with prio %u and direction %u entered bridge (DEBUG_ID=%i)\n", direc, prio, random_id);
   int random_wait_time;
   random_bytes(&random_id, sizeof random_id);
   random_bytes(&random_wait_time, sizeof random_wait_time);
   random_wait_time = random_wait_time % 2000;
-  timer_msleep(r);
-  printf("O Vehicle with prio %u and direction %u left bridge (DEBUG_ID=%i)\n", direc, prio, id);
+  timer_msleep(random_wait_time);
+  printf("O Vehicle with prio %u and direction %u left bridge (DEBUG_ID=%i)\n", direc, prio, random_id);
 }
 
 void ExitBridge(unsigned int direc, unsigned int prio){
