@@ -8,6 +8,7 @@
 #include "threads/synch.h"
 #include "threads/thread.h"
 #include "devices/timer.h"
+#include "lib/random.h"
 
 
 void narrow_bridge(unsigned int num_vehicles_left, unsigned int num_vehicles_right,
@@ -78,11 +79,7 @@ void narrow_bridge(UNUSED unsigned int num_vehicles_left, UNUSED unsigned int nu
   // TODO start Threads
 }
 
-void OneVehicle(int direc, int prio){
-  ArriveBridge(direc, prio);
-  CrossBridge(direc, prio);
-  ExitBridge(direc, prio);
-}
+
 
 void ArriveBridge_car(unsigned int direc){
   sema_down(&mutex);
@@ -196,82 +193,7 @@ void ExitBridge_car(unsigned int direc){
   }
   sema_up(&mutex);
 }
-
-
-// this function takes care of waking up car vehicles "fairly"
-// by chosing the side on which more cars vehicles are
-// currently waiting
-void WakeUp_cars(){
-  // this function should only be called if no vehicles are
-  // currently driving.
-  ASSERT(driving_left == 0);
-  ASSERT(driving_right == 0);
-  ASSERT(driving_emergency_left == 0);
-  ASSERT(driving_emergency_right == 0);
-
-  if (waiting_right + waiting_left > 0){
-    // case if there are any cars vehicles waiting
-    if (waiting_right > waiting_left){
-      // more cars waiting on the right side: wake them up
-      // if possible!
-      int i = 0;
-      while ((i < max_bridge_capacity) && (waiting_right > 0)){
-        driving_right += 1;
-        waiting_right -= 1;
-        sema_up(&ticket_right);
-        i += 1;
-      }
-    }else{
-      // more cars waiting on the left side: wake them up
-      // if possible!
-      int i = 0;
-      while ((i < max_bridge_capacity) && (waiting_left > 0)){
-        driving_left += 1;
-        waiting_left -= 1;
-        sema_up(&ticket_left);
-        i += 1;
-      }
-    }
-  }
-}     
-
-
-// this function takes care of waking up emergency vehicles "fairly"
-// by chosing the side on which more emergency vehicles are
-// currently waiting
-void WakeUp_emergencies(){
-  // this function should only be called if no other vehicles are
-  // currently driving.
-  ASSERT(driving_left == 0);
-  ASSERT(driving_right == 0);
-  ASSERT(driving_emergency_left == 0);
-  ASSERT(driving_emergency_right == 0);
-
-  if (waiting_emergency_right + waiting_emergency_left > 0){
-    // case if there are emergency vehicles waiting
-    if (waiting_emergency_right > waiting_emergency_left){
-      // more emergencys waiting on the right side: wake them up
-      // if possible!
-      int i = 0;
-      while ((i < max_bridge_capacity) && (waiting_emergency_right > 0)){
-        driving_emergency_right += 1;
-        waiting_emergency_right -= 1;
-        sema_up(&ticket_emergency_right);
-        i += 1;
-      }
-    }else{
-      // more emergencies waiting on the left side: wake them up
-      // if possible!
-      int i = 0;
-      while ((i < max_bridge_capacity) && (waiting_emergency_left > 0)){
-        driving_emergency_left += 1;
-        waiting_emergency_left -= 1;
-        sema_up(&ticket_emergency_left);
-        i += 1;
-      }
-    }
-  }
-}     
+   
 
 
 void ArriveBridge_emergency(unsigned int direc){
@@ -383,6 +305,81 @@ void ExitBridge_emergency(unsigned int direc){
 
 
 
+// this function takes care of waking up car vehicles "fairly"
+// by chosing the side on which more cars vehicles are
+// currently waiting
+void WakeUp_cars(){
+  // this function should only be called if no vehicles are
+  // currently driving.
+  ASSERT(driving_left == 0);
+  ASSERT(driving_right == 0);
+  ASSERT(driving_emergency_left == 0);
+  ASSERT(driving_emergency_right == 0);
+
+  if (waiting_right + waiting_left > 0){
+    // case if there are any cars vehicles waiting
+    if (waiting_right > waiting_left){
+      // more cars waiting on the right side: wake them up
+      // if possible!
+      int i = 0;
+      while ((i < max_bridge_capacity) && (waiting_right > 0)){
+        driving_right += 1;
+        waiting_right -= 1;
+        sema_up(&ticket_right);
+        i += 1;
+      }
+    }else{
+      // more cars waiting on the left side: wake them up
+      // if possible!
+      int i = 0;
+      while ((i < max_bridge_capacity) && (waiting_left > 0)){
+        driving_left += 1;
+        waiting_left -= 1;
+        sema_up(&ticket_left);
+        i += 1;
+      }
+    }
+  }
+}     
+
+
+// this function takes care of waking up emergency vehicles "fairly"
+// by chosing the side on which more emergency vehicles are
+// currently waiting
+void WakeUp_emergencies(){
+  // this function should only be called if no other vehicles are
+  // currently driving.
+  ASSERT(driving_left == 0);
+  ASSERT(driving_right == 0);
+  ASSERT(driving_emergency_left == 0);
+  ASSERT(driving_emergency_right == 0);
+
+  if (waiting_emergency_right + waiting_emergency_left > 0){
+    // case if there are emergency vehicles waiting
+    if (waiting_emergency_right > waiting_emergency_left){
+      // more emergencys waiting on the right side: wake them up
+      // if possible!
+      int i = 0;
+      while ((i < max_bridge_capacity) && (waiting_emergency_right > 0)){
+        driving_emergency_right += 1;
+        waiting_emergency_right -= 1;
+        sema_up(&ticket_emergency_right);
+        i += 1;
+      }
+    }else{
+      // more emergencies waiting on the left side: wake them up
+      // if possible!
+      int i = 0;
+      while ((i < max_bridge_capacity) && (waiting_emergency_left > 0)){
+        driving_emergency_left += 1;
+        waiting_emergency_left -= 1;
+        sema_up(&ticket_emergency_left);
+        i += 1;
+      }
+    }
+  }
+}  
+
 void ArriveBridge(unsigned int direc, unsigned int prio){
   if (prio == 1){
     ArriveBridge_emergency(direc);
@@ -393,9 +390,13 @@ void ArriveBridge(unsigned int direc, unsigned int prio){
 }
 
 void CrossBridge(unsigned int direc, unsigned int prio){
-  int id = rand();
+  int random_id;
+  random_bytes(&random_id, sizeof random_id);
   printf("X Vehicle with prio %u and direction %u entered bridge (DEBUG_ID=%i)\n", direc, prio, id);
-  int r = rand() % 2000;
+  int random_wait_time;
+  random_bytes(&random_id, sizeof random_id);
+  random_bytes(&random_wait_time, sizeof random_wait_time);
+  random_wait_time = random_wait_time % 2000;
   timer_msleep(r);
   printf("O Vehicle with prio %u and direction %u left bridge (DEBUG_ID=%i)\n", direc, prio, id);
 }
@@ -408,3 +409,11 @@ void ExitBridge(unsigned int direc, unsigned int prio){
     ExitBridge_car(direc);
   }
 }
+
+
+void OneVehicle(int direc, int prio){
+  ArriveBridge(direc, prio);
+  CrossBridge(direc, prio);
+  ExitBridge(direc, prio);
+}
+
