@@ -92,7 +92,7 @@ void ArriveBridge_car(unsigned int direc){
     if ((driving_left < max_bridge_capacity) && (driving_right + waiting_right == 0)){
       // Generate ticket for one of the cars on the left side
       driving_left += 1;
-      sema_up(ticket_left);
+      sema_up(&ticket_left);
     }else{
       // just add car to the waiting cars on left side
       waiting_left += 1;
@@ -106,7 +106,7 @@ void ArriveBridge_car(unsigned int direc){
     if ((driving_right < max_bridge_capacity) && (driving_right + waiting_right == 0)){
       // Generate ticket for one of the cars on the right side
       driving_right += 1;
-      sema_up(ticket_right);
+      sema_up(&ticket_right);
     }else{
       // just add car to the waiting cars on right side
       waiting_right += 1;
@@ -131,7 +131,7 @@ void ExitBridge_car(unsigned int direc){
       while ((i < max_bridge_capacity) && (waiting_right > 0)){
         driving_right += 1;
         waiting_right -= 1;
-        sema_up(ticket_right);
+        sema_up(&ticket_right);
         i += 1;
       }
     } else{
@@ -140,7 +140,7 @@ void ExitBridge_car(unsigned int direc){
       if ((waiting_left > 0) && (waiting_right == 0)){
         // if there are cars waiting on the same side just let
         // one of them go through
-        sema_up(ticket_left);
+        sema_up(&ticket_left);
         driving_left += 1;
         waiting_left -= 1;
       }
@@ -156,7 +156,7 @@ void ExitBridge_car(unsigned int direc){
       while ((i < max_bridge_capacity) && (waiting_left > 0)){
         driving_left += 1;
         waiting_left -= 1;
-        sema_up(ticket_left);
+        sema_up(&ticket_left);
         i += 1;
       }
     } else{
@@ -165,7 +165,7 @@ void ExitBridge_car(unsigned int direc){
       if ((waiting_right > 0) && (waiting_left == 0)){
         // if there are cars waiting on the same side just let
         // one of them go through
-        sema_up(ticket_right);
+        sema_up(&ticket_right);
         driving_right += 1;
         waiting_right -= 1;
       }
