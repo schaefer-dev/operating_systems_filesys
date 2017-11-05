@@ -75,9 +75,11 @@ void ArriveBridge_car(unsigned int direc){
 
   if (direc == 0){
     // vehicle on the left side case:
+    // TODO: check if the no emergency vehicle is driving check if this is necessary
     if ((driving_left < max_bridge_capacity) &&
         (driving_right + waiting_right == 0) &&
-        (waiting_emergency_left + waiting_emergency_right == 0)) 
+        (waiting_emergency_left + waiting_emergency_right 
+	+ driving_emergency_left + driving_emergency_right == 0)) 
     {
       // Generate ticket for one of the cars on the left side
       driving_left += 1;
@@ -92,9 +94,11 @@ void ArriveBridge_car(unsigned int direc){
 
   }else{
     // Vehicle on the right side case:
+    // TODO: check if the no emergency vehicle is driving check if this is necessary
     if ((driving_right < max_bridge_capacity) &&
         (driving_left + waiting_left == 0) &&
-        (waiting_emergency_left + waiting_emergency_right == 0)) 
+	(waiting_emergency_left + waiting_emergency_right 
+	+ driving_emergency_left + driving_emergency_right == 0))
     {
       // Generate ticket for one of the cars on the right side
       driving_right += 1;
