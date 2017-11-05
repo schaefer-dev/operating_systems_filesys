@@ -69,17 +69,13 @@ struct semaphore ticket_emergency_right;
 void narrow_bridge(UNUSED unsigned int num_vehicles_left, UNUSED unsigned int num_vehicles_right,
         UNUSED unsigned int num_emergency_left, UNUSED unsigned int num_emergency_right)
 {
-  waiting_left = 0;
-  waiting_right = 0;
-  waiting_emergency_left = 0;
-  waiting_emergency_right = 0;
-  
   sema_init(&ticket_left, 0);
   sema_init(&ticket_right, 0);
   sema_init(&ticket_emergency_left, 0);
   sema_init(&ticket_emergency_right, 0);
   sema_init(&mutex, 1);
-  // TODO
+
+  // TODO start Threads
 }
 
 void OneVehicle(int direc, int prio){
