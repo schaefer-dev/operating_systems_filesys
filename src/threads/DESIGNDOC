@@ -71,8 +71,9 @@ condition is fullfilled, which means that he has an element to consume.
 This has to be done in a while loop, because he does not neccessarily "get"
 the next element which is being inserted, because other consumers might
 consume the element first (happens e.g. if a new consumer thread is created
-and consumes the new element right away, so after the condition is signaled it
-might still be the case that the elment was already consumed by somebody else).
+and consumes the new element right away, so after the condition is signaled
+it might still be the case that the elment was already consumed by somebody
+else).
 Every addition to the buffer, produced by a producer will trigger a signal
 on the condition `not_empty`, which will "wake up" one consumer which is
 waiting for this condition to consume this element (unless it was already
@@ -85,22 +86,23 @@ Just like the consumer, if the buffer is currently filled, the producer will
 wait for a condition `not_full`. This condition
 will be signaled by a consumer if he consumes one of the currently contained
 elements in the buffer.
-One of the waiting producers will be woken up by this signal and after checking if
-nobody already filled this free space (condition of the while loop), he can
-produce a new element. 
+One of the waiting producers will be woken up by this signal and after
+checking if nobody already filled this free space (condition of the while
+loop), he can produce a new element. 
 
 >> B3: How does your solution preserve a FIFO semantics i.e., the first
 >> character produced will be the first to be consumed?
 
-By tracking the next value to be consumed using the variable `read_index` which
-points to the next value in the buffer to be read. Every output increments this
-index by one, unless we are at the last element of the buffer, in which case we
-move read_index to the first element of the buffer (modulo by buffersize). We
-can only consume a element if we stored something in the buffer (see explanation
-for consume above). Both the index for reading and writing starts with 0 and is
-only incremented in a respective read/write process. Because both reading and
-writing index are only incremented (modulo buffersize) when we read/write a
-element in exactly the same way, we can guarantee FIFO behaviour.
+By tracking the next value to be consumed using the variable `read_index`
+which points to the next value in the buffer to be read. Every output
+increments this index by one, unless we are at the last element of the buffer,
+in which case we move read_index to the first element of the buffer (modulo by
+buffersize). We can only consume a element if we stored something in the buffer
+(see explanation for consume above). Both the index for reading and writing
+starts with 0 and is only incremented in a respective read/write process.
+Because both reading and writing index are only incremented (modulo
+buffersize) when we read/write a element in exactly the same way, we can
+guarantee FIFO behaviour.
 
 ---- RATIONALE ----
 

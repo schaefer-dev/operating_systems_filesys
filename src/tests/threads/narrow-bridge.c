@@ -16,22 +16,22 @@ void narrow_bridge(unsigned int num_vehicles_left, unsigned int num_vehicles_rig
 
 void test_narrow_bridge(void)
 {
-    /*narrow_bridge(0, 0, 0, 0);
-    narrow_bridge(1, 0, 0, 0);
-    narrow_bridge(0, 0, 0, 1);
-    narrow_bridge(0, 4, 0, 0);
-    narrow_bridge(0, 0, 4, 0);
-    narrow_bridge(3, 3, 3, 3);
-    narrow_bridge(4, 3, 4 ,3);
-    narrow_bridge(7, 23, 17, 1);
-    narrow_bridge(40, 30, 0, 0);
-    narrow_bridge(30, 40, 0, 0);
-    narrow_bridge(23, 23, 1, 11);
-    narrow_bridge(22, 22, 10, 10);
-    narrow_bridge(0, 0, 11, 12);
-    narrow_bridge(0, 10, 0, 10);*/
-    narrow_bridge(0, 10, 10, 0);
-    pass();
+  /*narrow_bridge(0, 0, 0, 0);
+  narrow_bridge(1, 0, 0, 0);
+  narrow_bridge(0, 0, 0, 1);
+  narrow_bridge(0, 4, 0, 0);
+  narrow_bridge(0, 0, 4, 0);
+  narrow_bridge(3, 3, 3, 3);
+  narrow_bridge(4, 3, 4 ,3);
+  narrow_bridge(7, 23, 17, 1);
+  narrow_bridge(40, 30, 0, 0);
+  narrow_bridge(30, 40, 0, 0);
+  narrow_bridge(23, 23, 1, 11);
+  narrow_bridge(22, 22, 10, 10);
+  narrow_bridge(0, 0, 11, 12);
+  narrow_bridge(0, 10, 0, 10);*/
+  narrow_bridge(0, 10, 10, 0);
+  pass();
 }
 
 // maximal possible number of vehicles on the bridge at the same time
