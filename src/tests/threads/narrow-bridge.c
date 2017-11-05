@@ -400,7 +400,9 @@ void ExitBridge(unsigned int direc, unsigned int prio){
 }
 
 
-void OneVehicle(int direc, int prio){
+void OneVehicle(void (*)(int, int) arguments){
+  int direc = *arguments[0];
+  int prio = *arguments[1];
   ArriveBridge(direc, prio);
   CrossBridge(direc, prio);
   ExitBridge(direc, prio);
