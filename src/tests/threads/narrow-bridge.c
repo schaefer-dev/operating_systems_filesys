@@ -305,6 +305,7 @@ void ExitBridge_emergency(unsigned int direc){
 // this function takes care of waking up car vehicles "fairly"
 // by chosing the side on which more cars vehicles are
 // currently waiting
+// this function is only called when the mutex is already helt!
 void WakeUp_cars(){
   // this function should only be called if no vehicles are
   // currently driving.
@@ -343,6 +344,7 @@ void WakeUp_cars(){
 // this function takes care of waking up emergency vehicles "fairly"
 // by chosing the side on which more emergency vehicles are
 // currently waiting
+// this function is only called when the mutex is already helt!
 void WakeUp_emergencies(){
   // this function should only be called if no other vehicles are
   // currently driving.
@@ -409,8 +411,8 @@ void ExitBridge(unsigned int direc, unsigned int prio){
 
 
 void OneVehicle(int *arguments){
-  int direc = *arguments[0];
-  int prio = *arguments[1];
+  int direc = arguments[0];
+  int prio = arguments[1];
   ArriveBridge(direc, prio);
   CrossBridge(direc, prio);
   ExitBridge(direc, prio);
