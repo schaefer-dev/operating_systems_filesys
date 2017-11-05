@@ -57,10 +57,10 @@ int driving_emergency_right = 0;
 struct semaphore mutex;
 // semaphore to indicate that a vehicle on the left can drive
 struct semaphore ticket_left;
-// semaphore to indicate that a emergency vehicle on the left can drive
-struct semaphore ticker_emergency_left;
 // semaphore to indicate that a vehicle on the right can drive
-struct semaphore ticket_vehicle_right;
+struct semaphore ticket_right;
+// semaphore to indicate that a emergency vehicle on the left can drive
+struct semaphore ticket_emergency_left;
 // semaphore to indicate that a emergency vehicle on the right can drive
 struct semaphore ticket_emergency_right;
 
@@ -192,6 +192,7 @@ void ExitBridge_car(unsigned int direc){
           waiting_right -= 1;
         }
       }
+    }
   }
   sema_up(&mutex);
 }
@@ -200,7 +201,7 @@ void ExitBridge_car(unsigned int direc){
 // this function takes care of waking up car vehicles "fairly"
 // by chosing the side on which more cars vehicles are
 // currently waiting
-void WakeUp_emergencies(){
+void WakeUp_cars(){
   // this function should only be called if no vehicles are
   // currently driving.
   ASSERT(driving_left == 0);
