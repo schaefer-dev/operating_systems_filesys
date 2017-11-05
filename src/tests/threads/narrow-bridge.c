@@ -125,7 +125,8 @@ void ExitBridge_car(unsigned int direc){
           // case if there are emergency vehicles waiting and last car exited
           WakeUp_emergencies();
         }
-        // the else case does nothing, because cars are still driving
+        // the else case does nothing, because cars are still driving and
+	// emergency vehicles have priority
     }else{
       // case if no emergency vehicles are waiting
       if ((driving_left == 0) && (waiting_right > 0)){
@@ -395,13 +396,13 @@ void ArriveBridge(unsigned int direc, unsigned int prio){
 void CrossBridge(unsigned int direc, unsigned int prio){
   int random_id;
   random_bytes(&random_id, sizeof random_id);
-  printf("X Vehicle with prio %u and direction %u entered bridge (DEBUG_ID=%i)\n", direc, prio, random_id);
+  printf("X Vehicle with prio %u and direction %u entered bridge (DEBUG_ID=%i)\n", prio, direc, random_id);
   int random_wait_time;
-  random_bytes(&random_id, sizeof random_id);
+  //random_bytes(&random_id, sizeof random_id);
   random_bytes(&random_wait_time, sizeof random_wait_time);
   random_wait_time = random_wait_time % 2000;
   timer_msleep(random_wait_time);
-  printf("O Vehicle with prio %u and direction %u left bridge (DEBUG_ID=%i)\n", direc, prio, random_id);
+  printf("O Vehicle with prio %u and direction %u left bridge (DEBUG_ID=%i)\n", prio, direc, random_id);
 }
 
 void ExitBridge(unsigned int direc, unsigned int prio){
