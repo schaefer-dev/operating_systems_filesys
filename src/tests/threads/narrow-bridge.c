@@ -92,7 +92,7 @@ void ArriveBridge_car(unsigned int direc){
     if ((driving_left < max_bridge_capacity) &&
         (driving_right + waiting_right == 0) &&
         (waiting_emergency_left + waiting_emergency_right == 0)) 
-      {
+    {
       // Generate ticket for one of the cars on the left side
       driving_left += 1;
       sema_up(&ticket_left);
@@ -109,7 +109,7 @@ void ArriveBridge_car(unsigned int direc){
     if ((driving_right < max_bridge_capacity) &&
         (driving_left + waiting_left == 0) &&
         (waiting_emergency_left + waiting_emergency_right == 0)) 
-      {
+    {
       // Generate ticket for one of the cars on the right side
       driving_right += 1;
       sema_up(&ticket_right);
@@ -148,7 +148,7 @@ void ExitBridge_car(unsigned int direc){
           sema_up(&ticket_right);
           i += 1;
         }
-      } else{
+      }else{
         // Vehicle was not the last car driving from the left
         // or there are no cars waiting on the other side
         if ((waiting_left > 0) && (waiting_right == 0)){
@@ -181,7 +181,7 @@ void ExitBridge_car(unsigned int direc){
           sema_up(ticket_left);
           i += 1;
         }
-      } else{
+      }else{
         // Vehicle was not the last car driving from the right
         // or there are no cars waiting on the other side
         if ((waiting_right > 0) && (waiting_left == 0)){
@@ -192,11 +192,16 @@ void ExitBridge_car(unsigned int direc){
           waiting_right -= 1;
         }
       }
-
   }
   sema_up(&mutex);
 }
 
+
+
+
+// this function takes care of waking up emergency vehicles "fairly"
+// by chosing the side on which more emergency vehicles are
+// currentlywaiting
 void WakeUp_emergencies(){
   ASSERT(driving_left == 0);
   ASSERT(driving_right == 0);
