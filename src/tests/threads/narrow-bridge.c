@@ -178,7 +178,7 @@ void ExitBridge_car(unsigned int direc){
         while ((i < max_bridge_capacity) && (waiting_left > 0)){
           driving_left += 1;
           waiting_left -= 1;
-          sema_up(ticket_left);
+          sema_up(&ticket_left);
           i += 1;
         }
       }else{
@@ -187,7 +187,7 @@ void ExitBridge_car(unsigned int direc){
         if ((waiting_right > 0) && (waiting_left == 0)){
           // if there are cars waiting on the same side just let
           // one of them go through
-          sema_up(ticket_right);
+          sema_up(&ticket_right);
           driving_right += 1;
           waiting_right -= 1;
         }
