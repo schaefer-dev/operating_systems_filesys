@@ -116,11 +116,12 @@ void ExitBridge_car(unsigned int direc){
     // Vehicle coming from the left side case:
     driving_left -= 1;
     if (waiting_emergency_right + waiting_emergency_left > 0){
-        // case if there are emergency vehicles waiting -> just exit
+        // case if there are emergency vehicles waiting
         if (driving_left == 0){
           // case if there are emergency vehicles waiting and last car exited
           WakeUp_emergencies();
         }
+        // the else case does nothing, because cars are still driving
     }else{
       // case if no emergency vehicles are waiting
       if ((driving_left == 0) && (waiting_right > 0)){
@@ -150,11 +151,12 @@ void ExitBridge_car(unsigned int direc){
     // Vehicle coming from the right side case:
     driving_right -= 1;
     if (waiting_emergency_right + waiting_emergency_left > 0){
-      // case if there are emergency vehicles waiting -> just exit
+      // case if there are emergency vehicles waiting
         if (driving_right == 0){
           // case if there are emergency vehicles waiting and last car exited
           WakeUp_emergencies();
         }
+        // the else case does nothing, because cars are still driving
     }else{
       if ((driving_right == 0) && (waiting_left > 0)){
         // Vehicle was the last driving car from the right
@@ -191,7 +193,8 @@ void ArriveBridge_emergency(unsigned int direc){
   if (direc == 0){
     // emergency on the left side case:
     if ((driving_emergency_left < max_bridge_capacity) &&
-        (driving_emergency_right + waiting_emergency_right == 0)) 
+        (driving_emergency_right + waiting_emergency_right == 0) &&
+        (driving_car_right + driving_car_left == 0)) 
     {
       // Generate ticket for one of the emergencies on the left side
       driving_emergency_left += 1;
@@ -207,7 +210,8 @@ void ArriveBridge_emergency(unsigned int direc){
   }else{
     // emergency on the right side case:
     if ((driving_emergency_right < max_bridge_capacity) &&
-        (driving_emergency_left + waiting_emergency_left == 0))
+        (driving_emergency_left + waiting_emergency_left == 0)
+        (driving_car_right + driving_car_left == 0)) 
     {
       // Generate ticket for one of the emergencies on the right side
       driving_emergency_right += 1;
@@ -257,6 +261,8 @@ void ExitBridge_emergency(unsigned int direc){
           driving_emergency_left + driving_emergency_right == 0){
         WakeUp_cars();
       }
+      // the case of waiting_emergency_left == 0 and
+      // driving_emergency_left > 0 has to do "nothing" here
     }
   }else{
     // Emergency coming from the right side case:
@@ -287,6 +293,8 @@ void ExitBridge_emergency(unsigned int direc){
           driving_emergency_left + driving_emergency_right == 0){
         WakeUp_cars();
       }
+      // the case of waiting_emergency_right == 0 and
+      // driving_emergency_right > 0 has to do "nothing" here
     }
   }
   sema_up(&mutex);
@@ -400,7 +408,7 @@ void ExitBridge(unsigned int direc, unsigned int prio){
 }
 
 
-void OneVehicle(void (*)(int, int) arguments){
+void OneVehicle(int *arguments){
   int direc = *arguments[0];
   int prio = *arguments[1];
   ArriveBridge(direc, prio);
