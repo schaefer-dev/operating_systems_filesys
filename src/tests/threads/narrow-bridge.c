@@ -67,17 +67,6 @@ struct semaphore ticket_emergency_right;
 
 /*TODO: add a variable (probably bool) to indicate the turn e.g. "right_turn" */
 
-void narrow_bridge(UNUSED unsigned int num_vehicles_left, UNUSED unsigned int num_vehicles_right,
-        UNUSED unsigned int num_emergency_left, UNUSED unsigned int num_emergency_right)
-{
-  sema_init(&ticket_left, 0);
-  sema_init(&ticket_right, 0);
-  sema_init(&ticket_emergency_left, 0);
-  sema_init(&ticket_emergency_right, 0);
-  sema_init(&mutex, 1);
-
-  // TODO start Threads
-}
 
 
 
@@ -417,3 +406,39 @@ void OneVehicle(int direc, int prio){
   ExitBridge(direc, prio);
 }
 
+
+
+
+void narrow_bridge(UNUSED unsigned int num_vehicles_left, UNUSED unsigned int num_vehicles_right,
+        UNUSED unsigned int num_emergency_left, UNUSED unsigned int num_emergency_right)
+{
+  sema_init(&ticket_left, 0);
+  sema_init(&ticket_right, 0);
+  sema_init(&ticket_emergency_left, 0);
+  sema_init(&ticket_emergency_right, 0);
+  sema_init(&mutex, 1);
+
+  // TODO start Threads
+
+  int argument_left_car[2] = { 0, 0};
+  int argument_right_car[2] = { 1, 0};
+  int argument_left_emergency[2] = { 0, 1};
+  int argument_right_emergency[2] = { 1, 1};
+
+  int i = 0;
+  for (i=0; i<num_vehicles_left; i++){
+    thread_create("leftVehicle_" + (char)i, 0, &OneVehicle, &argument_left_car);
+  }
+
+  for (i=0; i<num_vehicles_right; i++){
+    thread_create("rightVehicle_" + (char)i, 0, &OneVehicle, &argument_right_car);
+  }
+
+  for (i=0; i<num_emergency_left; i++){
+    thread_create("leftEmergency_" + (char)i, 0, &OneVehicle, &argument_left_emergency);
+  }
+
+  for (i=0; i<num_emergency_right; i++){
+    thread_create("rightEmergency_" + (char)i, 0, &OneVehicle, &argument_right_emergency);
+  }
+}
