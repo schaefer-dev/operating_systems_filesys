@@ -593,7 +593,7 @@ sleeping_thread_insert (struct thread *new_thread, int64_t ticks)
   struct sleeping_thread *temp;
   temp = (struct sleeping_thread) malloc(sizeof(struct sleeping_thread));
   temp -> thread = new_thread;
-  temp -> ptr = head;
+  temp -> next = head;
   temp -> wakeup_tick = ticks;
   temp -> prev = NULL;
   head -> prev = temp;
