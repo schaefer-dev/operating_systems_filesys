@@ -110,7 +110,6 @@ thread_init (void)
   init_thread (initial_thread, "main", PRI_DEFAULT);
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid ();
-  initial_thread->wakeup_tick = -1;
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -211,7 +210,6 @@ thread_create (const char *name, int priority,
   sf->eip = switch_entry;
   sf->ebp = 0;
 
-  t->wakeup_tick = -1;
   /* Add to run queue. */
   thread_unblock (t);
 
@@ -478,7 +476,6 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
-  t->wakeup_tick = -1;
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
