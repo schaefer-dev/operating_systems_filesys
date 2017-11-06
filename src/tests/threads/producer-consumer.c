@@ -71,7 +71,6 @@ void consumer(void *aux){
       cond_wait(&not_empty, &mutex);
     }
     printf("%c",buffer[read_index]);
-    //buffer[read_index] = (char)"";
     read_index = (read_index + 1) % buffersize;
     element_counter -= 1;
     cond_signal(&not_full, &mutex);
@@ -88,14 +87,12 @@ void producer_consumer(UNUSED unsigned int num_producer,
   // initialize condition variables
   cond_init(&not_full);
   cond_init(&not_empty);
-  // struct thread producer_array[num_producer];
   unsigned int i=0;
   for (i=0; i<num_producer; i++){
     // start producer thread
     thread_create("producer_" + (char)i, 0, &producer, 0);
   }
 
-//struct thread consumer_array[num_consumer];
   for (i=0; i<num_consumer; i++){
     // start producer thread
     thread_create("consumer_" + (char)i, 0, &consumer, 0);
