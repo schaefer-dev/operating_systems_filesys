@@ -615,7 +615,7 @@ wakeup_sleeping_threads (int64_t current_ticks)
         // case for first element in the List
         head = iter->next;
       }else{
-        (iter->prev)->next = (iter->next)
+        (iter->prev)->next = (iter->next);
       }
       struct sleeping_thread *next_iter = iter->next;
       free(iter);
@@ -644,8 +644,8 @@ schedule (void)
   ASSERT (is_thread (next));
 
   // thread_foreach (wake_sleeping,0);
-  int timer_ticks = timer_ticks();
-  wakeup_sleeping_threads(timer_ticks);
+  int current_tick = timer_ticks();
+  wakeup_sleeping_threads(current_tick);
 
   if (cur != next)
     prev = switch_threads (cur, next);
