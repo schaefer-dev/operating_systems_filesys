@@ -29,32 +29,94 @@ Christian Bohnenberger <s9cnbohn@stud.uni-saarland.de>
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
-Explain the new sleep_ticks field
+/* Struct to save sleeping threads as linked List. */
+struct sleeping_thread
+{
+  struct thread *thread;
+  int64_t wakeup_tick;
+  struct sleeping_thread *next;
+  struct sleeping_thread *prev;
+}
+
+This struct stores all the "sleeping" threads together with
+the tick they are supposed to be woken up on in a linked list.
+
+static sleeping_thread *head;
+
+head stores the head of the linked list of sleeping_threads
+(NULL if empty)
+
 
 ---- ALGORITHMS ----
 
 >> A2: Briefly describe what happens in a call to timer_sleep(),
 >> including the effects of the timer interrupt handler.
 
+A call to timer_sleep() calls our function thread_sleep with
+wakeup_ticks (current tick + ticks to sleep) as argument.
+Thread_sleep saves the current instruction state and disables
+interrupts. We then pass the current thread to sleeping_thread_insert
+which adds this thread to the list of sleeping threads. Afterwards
+the threads get blocked. It is also important to restore the old
+instruction level after the thread is being unblocked.
+
+During every call of timer interrupt handler we call our new function
+wakeup_sleeping_threads (int64_t current_ticks) which takes care
+of waking up all currently sleeping threads with wakeup_tick <=
+current_ticks. This enables these threads to be scheduled again.
+
+
 >> A3: What steps are taken to minimize the amount of time spent in
 >> the timer interrupt handler?
 
-save the exact tick at which a thread is being woken up on
+We save the exact tick on which each sleeping thread is being woken
+up on. This means that we just have to iterate over the linked list
+of sleeping threads and check if the current tick is >= the tick
+this thread is supposed to be woken up on. Using a linked list
+instead of using the built-in function thread_foreach saves a lot
+of time spent in the timer interrupt handler because we do not have
+to iterate over the set of all threads but only a very small subset
+of this set (the sleeping ones)
 
 ---- SYNCHRONIZATION ----
 
 >> A4: How are race conditions avoided when multiple threads call
 >> timer_sleep() simultaneously?
 
+timer_ticks disables interrupts which makes it impossible for race
+conditions to occur. The rest of the the code inside timer_sleep
+are changes of local variables which obviously can not result in
+race conditions. Our function thread_sleep disables interrupts
+entirely so no races can occur during the process of blocking the
+thread and saving it in our list.
+
+
 >> A5: How are race conditions avoided when a timer interrupt occurs
 >> during a call to timer_sleep()?
+
+As mentioned above a timer interrupt inside timer_sleep would not
+affect anything meaningful, because the function only works on
+local variables. And as soon as we enter thread_sleep instructions
+are being turned off. The call of timer_ticks inside timer_sleep
+is also protected by interrupts being turned off, as mentioned above.
 
 ---- RATIONALE ----
 
 >> A6: Why did you choose this design?  In what ways is it superior to
 >> another design you considered?
 
-compare with linked list design of sleeping threads list
+At first we implemented this task by using the built-in function
+thread_foreach and using a newly introduced field in the thread struct
+called wakeup_ticks. Assuming that a lot of threads are sleeping at one
+time this approach has the advantage of needing less memory, because no
+additional list (which contains multiple pointers and integer values)
+is needed.
+We still decided to use a linked list which stores the sleeping threads,
+mainly because it saves a lot of time during the timer interrupt handler
+because we only have to iterate over a (usually) much smaller linked list
+compared to the list of all threads. We think that this very small memory
+disadvantage is far less significant than the time we have to spent in a
+state in which interrupts are disabled (system less responsive).
 
 
     		     PROD/CONS
@@ -131,24 +193,97 @@ of signaling a "free space" in the buffer or a "consumable element".
 >> C1: How does your solution guarantee that no more that 3 vehicles 
 >> are crossing the bridge in the same direction?
 
+We introduced 4 counting semaphores which can be seen as "tickets" which
+are for either "emergency_left", "emergency_right", or just "right" /
+"left" cars.
+Initially these semaphores are all set to zero. Upon arrival of a vehicle
+it checks if no cars are currently driving and only if this is the case,
+tickets can be "created" by incrementing the semaphor. For all type of
+vehicles it is only possible to cross the bridge if a ticket of the
+correct type is available. The semaphor guarantees at all times, that only
+one vehicle of this particular type can use this ticket to cross the bridge.
+
+Tickets can only be created if:
+1) no cars in opposite directs are currently driving
+2) less than 3 cars are driving in the same direction
+and for cars 3) no emergency vehicles are driving OR waiting on either side.
+
 >> C2: What prevents vehicles from opposite directions from crossing the
 >> bridge simultaneously?
 
+It is impossible for tickets being created if vehicles in a opposite direction
+are still driving. It is also impossible to drive without decreasing the
+semaphore (= taking a ticket), so it can not be possible that vehicles from
+opposite direction cross the bridge simultaneously.
+
+Tickets can only be created when:
+1) A vehicle arrives and nobody is currently driving
+2) A vehicle is arriving and less than 3 vehicles are driving in the same
+direction
+3) A Vehicle exists the bridge and vehicles on the same side are waiting.
+4) The last driving vehicle exits the bridge and vehicles on the opposite side are waiting.
+
+
 >> C3: How does your solution grant priority to emergency vehicles over
 >> the queue of vehicles ahead in the same direction?
+
+Before any ticket for a normal car can be created it is always checked
+(during vehicle arrival and during vehicle exit) if any emergency vehicles
+are currently waiting/driving. If that is the case, no ticket for cars can
+be created, which means that the emergency vehicles can
+1) start crossing the bridge right away if nobody is currently driving
+   (regardless how many cars are waiting on either side)
+2) wait for the last car exiting the bridge and then crossing the bridge
 
 >> C4: How do you guarantee that despite having priority, emergency vehicles
 >> do not start crossing the bridge while there are still vehicles crossing
 >> it in the oposite direction?
 
+Also see answer to C4: It is impossible that emergency vehicle tickets are
+being created (incremented) if any cars are still driving. This obviously
+makes it impossible for emergency vehicles to start crossing the bridge
+while there are still vehicles crossing.
+If a car exits the bridge it always checks first if emergency vehicles are
+waiting. If this is the case, no more tickets for cars are created until 0
+emergency vehicles are waiting/driving. If this exiting car is the last car
+which is currently crossing the bridge, it will create tickets for (at most
+3) waiting emergency vehicles from either side.
+
 >> C5: Explain with examples why your solution does not preserve neither 
 >> fairness nor freedom from starvation, other than what has been indicated 
 >> for emergency vehicles.
+
+It is possible that emergency vehicles are constantly arriving at opposing
+sides. This will cause all waiting cars to starve, because emergency vehicles
+are constantly driving.
+
+If 5 cars are arriving on one side and 4 cars are able to cross and exit the
+bridge before a emergency vehicle arrives (which stops the fifth car from
+crossing the bridge). During the cross of this emergency vehicle, 200 cars
+arrive on the opposing side of the waiting car. Our implementation will
+notice that more cars are waiting on the busy side, and all 200 cars (and all
+new arriving cars on this side while cars are still driving) will be
+allowed to cross before the one car which is waiting for the whole time can
+cross.
+
+In our implementation it is always guaranteed that each car can eventually cross
+unless an infinite number of cars arrives on the other side (faster than they
+can cross the bridge)
 
 ---- RATIONALE ----
 
 >> C6: Why did you choose this design? Did you consider other design 
 >> alternatives? In what ways is it superior to another design you considered?
+
+We chose this design because we think it does a very good job at preserving
+the in our opinion "best fairness possible" in this example. By this we mean
+the preference to let the cars drive which can preserve the "optimal 
+effectiveness" of the bridge, which means that in the best case scenario always
+3 cars are driving at the same time. We could also use an implementation which
+"prefers" one of the sides and only switches to the other side if no cars are
+waiting on the prefered side, but we think that this implementation would be
+far less usefull in a "real world scenario"
+
 
 
 			   SURVEY QUESTIONS
