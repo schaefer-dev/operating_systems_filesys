@@ -45,6 +45,15 @@ struct kernel_thread_frame
     void *aux;                  /* Auxiliary data for function. */
   };
 
+/* Struct to save sleeping threads as linked List. */
+struct sleeping_thread
+{
+  struct thread *thread;
+  int64_t wakeup_tick;
+  struct sleeping_thread *next;
+  struct sleeping_thread *prev;
+} sleeping_thread;
+
 /* Statistics. */
 static long long idle_ticks;    /* # of timer ticks spent idle. */
 static long long kernel_ticks;  /* # of timer ticks in kernel threads. */
@@ -53,6 +62,9 @@ static long long user_ticks;    /* # of timer ticks in user programs. */
 /* Scheduling. */
 #define TIME_SLICE 4            /* # of timer ticks to give each thread. */
 static unsigned thread_ticks;   /* # of timer ticks since last yield. */
+
+/* Head of linked list of sleeping threads */
+static struct sleeping_thread *head = NULL;
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
@@ -206,16 +218,6 @@ thread_create (const char *name, int priority,
   return tid;
 }
 
-/* Puts the current thread to sleep. And starts a timer to
-   wake it up when it was sleeping for ticks Ticks.*/
-void
-thread_sleep (int64_t ticks) 
-{
-  enum intr_level old_level = intr_disable ();
-  thread_current ()->wakeup_tick = ticks;
-  thread_block();
-  intr_set_level (old_level);
-}
 
 /* Puts the current thread to sleep.  It will not be scheduled
    again until awoken by thread_unblock().
@@ -571,6 +573,57 @@ void wake_sleeping(struct thread *t, void *aux)
   }
 }
 
+/* Puts the current thread to sleep. And starts a timer to
+   wake it up when it was sleeping for ticks Ticks.*/
+void
+thread_sleep (int64_t ticks) 
+{
+  enum intr_level old_level = intr_disable ();
+  struct thread *current_thread = thread_current();
+  sleeping_thread_insert(current_thread, ticks);
+  thread_block();
+  intr_set_level (old_level);
+}
+
+
+/* Adds the passed thread to the list of sleeping threads */
+void
+sleeping_thread_insert (struct thread *new_thread, int64_t ticks)
+{
+  struct sleeping_thread *temp;
+  temp = (struct sleeping_thread) malloc(sizeof(struct sleeping_thread));
+  temp -> thread = new_thread;
+  temp -> ptr = head;
+  temp -> wakeup_tick = ticks;
+  temp -> prev = NULL;
+  head -> prev = temp;
+  head = temp;
+}
+
+/* Wakes up all threads in the list of sleeping threads with 
+   wakeup_tick <= passed ticks.*/
+void
+wakeup_sleeping_threads (int64_t current_ticks)
+{
+  ASSERT (intr_get_level () == INTR_OFF);
+  struct sleeping_thread *iter = head;
+  while (head != NULL){
+    if (iter->wakeup_tick <= current_ticks){
+      thread_unblock(iter->thread);
+
+      if (iter->prev == NULL){
+        // case for first element in the List
+        head = iter->next;
+      }else{
+        (iter->prev)->next = (iter->next)
+      }
+      struct sleeping_thread *next_iter = iter->next;
+      free(iter);
+      iter = next_iter;
+    }
+  }
+}
+
 
 /* Schedules a new process.  At entry, interrupts must be off and
    the running process's state must have been changed from
@@ -590,7 +643,9 @@ schedule (void)
   ASSERT (cur->status != THREAD_RUNNING);
   ASSERT (is_thread (next));
 
-  thread_foreach (wake_sleeping,0);
+  // thread_foreach (wake_sleeping,0);
+  int timer_ticks = timer_ticks();
+  wakeup_sleeping_threads(timer_ticks);
 
   if (cur != next)
     prev = switch_threads (cur, next);
