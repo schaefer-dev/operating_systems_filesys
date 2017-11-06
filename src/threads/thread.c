@@ -591,7 +591,7 @@ void
 sleeping_thread_insert (struct thread *new_thread, int64_t ticks)
 {
   struct sleeping_thread *temp;
-  temp = (struct sleeping_thread) malloc(sizeof(struct sleeping_thread));
+  temp = (struct sleeping_thread*) malloc(sizeof(struct sleeping_thread));
   temp -> thread = new_thread;
   temp -> next = head;
   temp -> wakeup_tick = ticks;
