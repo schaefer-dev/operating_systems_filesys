@@ -596,7 +596,9 @@ sleeping_thread_insert (struct thread *new_thread, int64_t ticks)
   temp -> next = head;
   temp -> wakeup_tick = ticks;
   temp -> prev = NULL;
-  head -> prev = temp;
+  if (head != NULL){
+    head -> prev = temp;
+  }
   head = temp;
 }
 
