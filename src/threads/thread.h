@@ -142,5 +142,7 @@ int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
 void thread_sleep (int64_t);
+void wakeup_sleeping_threads(int64_t);
+void sleeping_thread_insert(struct thread *, int64_t);
 
 #endif /* threads/thread.h */
