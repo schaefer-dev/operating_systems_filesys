@@ -579,13 +579,8 @@ void
 thread_sleep (int64_t ticks) 
 {
   enum intr_level old_level = intr_disable ();
-  printf("thread is sleeping\n");
-  printf("%i\n", head);
   struct thread *current_thread = thread_current();
   sleeping_thread_insert(current_thread, ticks);
-  printf("thread is inserted\n");
-  printf("%i\n", head);
-  printf("%i\n", head->wakeup_tick);
   thread_block();
   intr_set_level (old_level);
 }
