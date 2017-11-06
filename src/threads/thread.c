@@ -616,7 +616,7 @@ wakeup_sleeping_threads (int64_t current_ticks)
       if (iter->prev == NULL){
         // case for first element in the List
         head = iter->next;
-        head -> prev = NULL:
+        head -> prev = NULL;
       }else{
         (iter -> prev) -> next = (iter -> next);
         if (iter->next != NULL){
