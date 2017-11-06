@@ -557,7 +557,8 @@ thread_schedule_tail (struct thread *prev)
 
 
 /* Puts the current thread to sleep. And starts a timer to
-   wake it up when it was sleeping for ticks Ticks.*/
+   wake it up when it was sleeping for ticks amount of 
+   Ticks. */
 void
 thread_sleep (int64_t ticks) 
 {
@@ -574,7 +575,8 @@ void
 sleeping_thread_insert (struct thread *new_thread, int64_t ticks)
 {
   struct sleeping_thread *temp;
-  temp = (struct sleeping_thread*) malloc(sizeof(struct sleeping_thread));
+  temp = (struct sleeping_thread*)
+    malloc(sizeof(struct sleeping_thread));
   temp -> thread = new_thread;
   temp -> next = head;
   temp -> wakeup_tick = ticks;
@@ -586,7 +588,7 @@ sleeping_thread_insert (struct thread *new_thread, int64_t ticks)
 }
 
 /* Wakes up all threads in the list of sleeping threads with 
-   wakeup_tick <= passed ticks.*/
+   wakeup_tick <= passed ticks. */
 void
 wakeup_sleeping_threads (int64_t current_ticks)
 {
@@ -597,10 +599,8 @@ wakeup_sleeping_threads (int64_t current_ticks)
     if (iter->wakeup_tick <= current_ticks){
 
       if (iter->prev == NULL){
-        // case for first element in the List
         head = iter->next;
 	if (head != NULL){
-	  // if there are elements in the list left
           head -> prev = NULL;
 	}
       }else{
