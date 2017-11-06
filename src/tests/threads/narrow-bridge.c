@@ -65,17 +65,12 @@ struct semaphore ticket_emergency_left;
 // semaphore to indicate that a emergency vehicle on the right can drive
 struct semaphore ticket_emergency_right;
 
-/*TODO: add a variable (probably bool) to indicate the turn e.g. "right_turn" */
-
-
-
 
 void ArriveBridge_car(unsigned int direc){
   sema_down(&mutex);
 
   if (direc == 0){
     // vehicle on the left side case:
-    // TODO: check if the no emergency vehicle is driving check if this is necessary
     if ((driving_left < max_bridge_capacity) &&
         (driving_right + waiting_right == 0) &&
         (waiting_emergency_left + waiting_emergency_right 
@@ -94,7 +89,6 @@ void ArriveBridge_car(unsigned int direc){
 
   }else{
     // Vehicle on the right side case:
-    // TODO: check if the no emergency vehicle is driving check if this is necessary
     if ((driving_right < max_bridge_capacity) &&
         (driving_left + waiting_left == 0) &&
 	(waiting_emergency_left + waiting_emergency_right 
@@ -398,7 +392,6 @@ void CrossBridge(unsigned int direc, unsigned int prio){
   random_bytes(&random_id, sizeof random_id);
   printf("X Vehicle with prio %u and direction %u entered bridge (DEBUG_ID=%i)\n", prio, direc, random_id);
   int random_wait_time;
-  //random_bytes(&random_id, sizeof random_id);
   random_bytes(&random_wait_time, sizeof random_wait_time);
   random_wait_time = random_wait_time % 2000;
   timer_msleep(random_wait_time);
