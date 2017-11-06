@@ -29,7 +29,7 @@ Christian Bohnenberger <s9cnbohn@stud.uni-saarland.de>
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
-/* Struct to save sleeping threads as linked List. */
+/* Struct to save sleeping threads as linked list. */
 struct sleeping_thread
 {
   struct thread *thread;
@@ -57,10 +57,10 @@ wakeup_ticks (current tick + ticks to sleep) as argument.
 Thread_sleep saves the current instruction state and disables
 interrupts. We then pass the current thread to sleeping_thread_insert
 which adds this thread to the list of sleeping threads. Afterwards
-the threads get blocked. It is also important to restore the old
+the thread get blocked. It is also important to restore the old
 instruction level after the thread is being unblocked.
 
-During every call of timer interrupt handler we call our new function
+During every call of the timer interrupt handler we call our new function
 wakeup_sleeping_threads (int64_t current_ticks) which takes care
 of waking up all currently sleeping threads with wakeup_tick <=
 current_ticks. This enables these threads to be scheduled again.
@@ -76,7 +76,7 @@ this thread is supposed to be woken up on. Using a linked list
 instead of using the built-in function thread_foreach saves a lot
 of time spent in the timer interrupt handler because we do not have
 to iterate over the set of all threads but only a very small subset
-of this set (the sleeping ones)
+of this set (the sleeping ones).
 
 ---- SYNCHRONIZATION ----
 
@@ -115,7 +115,7 @@ We still decided to use a linked list which stores the sleeping threads,
 mainly because it saves a lot of time during the timer interrupt handler
 because we only have to iterate over a (usually) much smaller linked list
 compared to the list of all threads. We think that this very small memory
-disadvantage is far less significant than the time we have to spent in a
+disadvantage is far less significant than the time we have to spend in a
 state in which interrupts are disabled (system less responsive).
 
 
@@ -158,7 +158,7 @@ loop), he can produce a new element.
 By tracking the next value to be consumed using the variable `read_index`
 which points to the next value in the buffer to be read. Every output
 increments this index by one, unless we are at the last element of the buffer,
-in which case we move read_index to the first element of the buffer (modulo by
+in which case we move read_index to the first element of the buffer (modulo
 buffer-size). We can only consume a element if we stored something in the buffer
 (see explanation for consume above). Both the index for reading and writing
 starts with 0 and is only incremented in a respective read/write process.
@@ -204,7 +204,7 @@ correct type is available. The semaphore guarantees at all times, that only
 one vehicle of this particular type can use this ticket to cross the bridge.
 
 Tickets can only be created if:
-1) no cars in opposite directs are currently driving
+1) no cars in opposite direction are currently driving
 2) less than 3 cars are driving in the same direction
 and for cars 3) no emergency vehicles are driving OR waiting on either side.
 
@@ -213,7 +213,7 @@ and for cars 3) no emergency vehicles are driving OR waiting on either side.
 
 It is impossible for tickets being created if vehicles in a opposite direction
 are still driving. It is also impossible to drive without decreasing the
-semaphore (= taking a ticket), so it can not be possible that vehicles from
+semaphore (= taking a ticket), so it cannot be possible that vehicles from
 opposite direction cross the bridge simultaneously.
 
 Tickets can only be created when:
