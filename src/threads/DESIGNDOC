@@ -66,7 +66,7 @@ of waking up all currently sleeping threads with wakeup_tick <=
 current_ticks. This enables these threads to be scheduled again.
 
 
->> A3: What steps are taken to minimize the amount of time spent in
+>> A3: What steps are taken to minimise the amount of time spent in
 >> the timer interrupt handler?
 
 We save the exact tick on which each sleeping thread is being woken
@@ -129,12 +129,12 @@ state in which interrupts are disabled (system less responsive).
 
 The condition `not_empty` is only true if at least one element is contained
 in the buffer, which could be consumed. Every consumer waits until this
-condition is fullfilled, which means that he has an element to consume.
-This has to be done in a while loop, because he does not neccessarily "get"
+condition is fulfilled, which means that he has an element to consume.
+This has to be done in a while loop, because he does not necessarily "get"
 the next element which is being inserted, because other consumers might
 consume the element first (happens e.g. if a new consumer thread is created
-and consumes the new element right away, so after the condition is signaled
-it might still be the case that the elment was already consumed by somebody
+and consumes the new element right away, so after the condition is signalled
+it might still be the case that the element was already consumed by somebody
 else).
 Every addition to the buffer, produced by a producer will trigger a signal
 on the condition `not_empty`, which will "wake up" one consumer which is
@@ -146,7 +146,7 @@ consumed as mentioned above).
 
 Just like the consumer, if the buffer is currently filled, the producer will
 wait for a condition `not_full`. This condition
-will be signaled by a consumer if he consumes one of the currently contained
+will be signalled by a consumer if he consumes one of the currently contained
 elements in the buffer.
 One of the waiting producers will be woken up by this signal and after
 checking if nobody already filled this free space (condition of the while
@@ -159,11 +159,11 @@ By tracking the next value to be consumed using the variable `read_index`
 which points to the next value in the buffer to be read. Every output
 increments this index by one, unless we are at the last element of the buffer,
 in which case we move read_index to the first element of the buffer (modulo by
-buffersize). We can only consume a element if we stored something in the buffer
+buffer-size). We can only consume a element if we stored something in the buffer
 (see explanation for consume above). Both the index for reading and writing
 starts with 0 and is only incremented in a respective read/write process.
 Because both reading and writing index are only incremented (modulo
-buffersize) when we read/write a element in exactly the same way, we can
+buffer-size) when we read/write a element in exactly the same way, we can
 guarantee FIFO behaviour.
 
 ---- RATIONALE ----
@@ -182,7 +182,7 @@ overwritten and lost (see condition variables + condition in while loop).
 
 With a monitor and condition variable the task was very easy to complete in
 exactly the way we did. Condition variables are made for exactly this task
-of signaling a "free space" in the buffer or a "consumable element".
+of signalling a "free space" in the buffer or a "consumable element".
 
 
 			     NARROW BRIDGE
@@ -198,9 +198,9 @@ are for either "emergency_left", "emergency_right", or just "right" /
 "left" cars.
 Initially these semaphores are all set to zero. Upon arrival of a vehicle
 it checks if no cars are currently driving and only if this is the case,
-tickets can be "created" by incrementing the semaphor. For all type of
+tickets can be "created" by incrementing the semaphore. For all type of
 vehicles it is only possible to cross the bridge if a ticket of the
-correct type is available. The semaphor guarantees at all times, that only
+correct type is available. The semaphore guarantees at all times, that only
 one vehicle of this particular type can use this ticket to cross the bridge.
 
 Tickets can only be created if:
@@ -237,7 +237,7 @@ be created, which means that the emergency vehicles can
 
 >> C4: How do you guarantee that despite having priority, emergency vehicles
 >> do not start crossing the bridge while there are still vehicles crossing
->> it in the oposite direction?
+>> it in the opposite direction?
 
 Also see answer to C4: It is impossible that emergency vehicle tickets are
 being created (incremented) if any cars are still driving. This obviously
@@ -281,8 +281,8 @@ the preference to let the cars drive which can preserve the "optimal
 effectiveness" of the bridge, which means that in the best case scenario always
 3 cars are driving at the same time. We could also use an implementation which
 "prefers" one of the sides and only switches to the other side if no cars are
-waiting on the prefered side, but we think that this implementation would be
-far less usefull in a "real world scenario"
+waiting on the preferred side, but we think that this implementation would be
+far less useful in a "real world scenario"
 
 
 
