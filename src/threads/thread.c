@@ -135,6 +135,9 @@ thread_start (void)
 void
 thread_tick (void) 
 {
+  int64_t current_tick = timer_ticks();
+  wakeup_sleeping_threads(current_tick);
+
   struct thread *t = thread_current ();
 
   /* Update statistics. */
@@ -627,7 +630,7 @@ wakeup_sleeping_threads (int64_t current_ticks)
         }
       }
       thread_unblock(iter->thread);
-      //free(iter);
+      free(iter);
     }
     iter = next_iter;
   }
