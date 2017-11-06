@@ -620,7 +620,7 @@ wakeup_sleeping_threads (int64_t current_ticks)
       }else{
         (iter -> prev) -> next = (iter -> next);
         if (iter->next != NULL){
-          (iter -> next) -> prev = next -> prev;
+          (iter -> next) -> prev = iter -> prev;
         }
       }
       struct sleeping_thread *next_iter = iter->next;
