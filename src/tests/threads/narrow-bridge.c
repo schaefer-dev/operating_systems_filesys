@@ -435,8 +435,6 @@ void narrow_bridge(UNUSED unsigned int num_vehicles_left, UNUSED unsigned int nu
   sema_init(&ticket_emergency_right, 0);
   sema_init(&mutex, 1);
 
-  // TODO start Threads
-
   int argument_left_car[2] = { 0, 0};
   int argument_right_car[2] = { 1, 0};
   int argument_left_emergency[2] = { 0, 1};
@@ -458,48 +456,4 @@ void narrow_bridge(UNUSED unsigned int num_vehicles_left, UNUSED unsigned int nu
   for (i=0; i<num_emergency_right; i++){
     thread_create("rightEmergency_" + (char)i, 0, &OneVehicle, &argument_right_emergency);
   }
-
-  timer_msleep(1000);
-  timer_msleep(1000);
-  timer_msleep(1000);
-  timer_msleep(1000);
-  timer_msleep(1000);
-  timer_msleep(1000);
-  timer_msleep(1000);
-  timer_msleep(1000);
-  timer_msleep(1000);
-  timer_msleep(1000);
-  timer_msleep(1000);
-  timer_msleep(1000);
-  timer_msleep(1000);
-  timer_msleep(1000);
-  timer_msleep(1000);
-  timer_msleep(1000);
-  timer_msleep(1000);
-  timer_msleep(1000);
-  timer_msleep(1000);
-  timer_msleep(1000);
-  timer_msleep(1000);
-  timer_msleep(1000);
-  timer_msleep(1000);
-  timer_msleep(1000);
-  timer_msleep(1000);
-  timer_msleep(1000);
-  timer_msleep(1000);
-  timer_msleep(1000);
-  timer_msleep(1000);
-  timer_msleep(1000);
-  timer_msleep(1000);
-  timer_msleep(1000);
-  timer_msleep(1000);
-  timer_msleep(1000);
-  timer_msleep(1000);
-  timer_msleep(1000);
-  timer_msleep(1000);
-  timer_msleep(1000);
-  timer_msleep(1000);
-  timer_msleep(1000);
-  timer_msleep(1000);
-  timer_msleep(1000);
-  timer_msleep(1000);
 }
