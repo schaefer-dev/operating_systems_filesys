@@ -561,20 +561,6 @@ thread_schedule_tail (struct thread *prev)
     }
 }
 
-/* wakes up thread if he has slept for long enough */
-void wake_sleeping(struct thread *t, void *aux)
-{
-  // should only be called in schedule() with INTR_OFF
-  ASSERT (intr_get_level () == INTR_OFF);
-
-  if (t->wakeup_tick > -1){
-    int64_t current_tick = timer_ticks();
-    if (current_tick >= t->wakeup_tick){
-	thread_unblock(t);
-	t->wakeup_tick = -1;
-    }
-  }
-}
 
 /* Puts the current thread to sleep. And starts a timer to
    wake it up when it was sleeping for ticks Ticks.*/
@@ -629,8 +615,9 @@ wakeup_sleeping_threads (int64_t current_ticks)
           (iter -> next) -> prev = iter -> prev;
         }
       }
-      thread_unblock(iter->thread);
-      free(iter);
+      struct thread *wake_up_thread = iter->thread; 
+      iter = NULL;
+      thread_unblock(wake_up_thread);
     }
     iter = next_iter;
   }
@@ -654,9 +641,6 @@ schedule (void)
   ASSERT (intr_get_level () == INTR_OFF);
   ASSERT (cur->status != THREAD_RUNNING);
   ASSERT (is_thread (next));
-
-  int current_tick = timer_ticks();
-  wakeup_sleeping_threads(current_tick);
 
   if (cur != next)
     prev = switch_threads (cur, next);
