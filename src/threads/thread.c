@@ -580,9 +580,11 @@ thread_sleep (int64_t ticks)
 {
   enum intr_level old_level = intr_disable ();
   printf("thread is sleeping\n");
+  printf("%i\n", head);
   struct thread *current_thread = thread_current();
   sleeping_thread_insert(current_thread, ticks);
   printf("thread is inserted\n");
+  printf("%i\n", head);
   printf("%i\n", head->wakeup_tick);
   thread_block();
   intr_set_level (old_level);
@@ -613,23 +615,26 @@ wakeup_sleeping_threads (int64_t current_ticks)
   ASSERT (intr_get_level () == INTR_OFF);
   struct sleeping_thread *iter = head;
   while (iter != NULL){
+    struct sleeping_thread *next_iter = iter->next;
     if (iter->wakeup_tick <= current_ticks){
 
       if (iter->prev == NULL){
         // case for first element in the List
         head = iter->next;
-        head -> prev = NULL;
+	if (head != NULL){
+	  // if there are elements in the list left
+          head -> prev = NULL;
+	}
       }else{
         (iter -> prev) -> next = (iter -> next);
         if (iter->next != NULL){
           (iter -> next) -> prev = iter -> prev;
         }
       }
-      struct sleeping_thread *next_iter = iter->next;
       thread_unblock(iter->thread);
       //free(iter);
-      iter = next_iter;
     }
+    iter = next_iter;
   }
 }
 
@@ -652,7 +657,6 @@ schedule (void)
   ASSERT (cur->status != THREAD_RUNNING);
   ASSERT (is_thread (next));
 
-  // thread_foreach (wake_sleeping,0);
   int current_tick = timer_ticks();
   wakeup_sleeping_threads(current_tick);
 
