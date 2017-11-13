@@ -1,5 +1,6 @@
 #include "userprog/syscall.h"
 #include <stdio.h>
+#include "lib/string.h"
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
@@ -23,8 +24,13 @@ syscall_handler (struct intr_frame *f UNUSED)
       break;
 
     case SYS_EXIT:
-      int exit_type = *((int*)f->esp + 1);
-      break;
+      {
+        int exit_type = *(((int*) f->esp) + 1);
+        char terminating_thread_name[16];
+        strlcpy(terminating_thread_name, thread_name(), 16);
+        printf("%s: exit(%d)\n", terminating_thread_name, exit_type);
+        break;
+      }
 
     case SYS_EXEC:
       break;
