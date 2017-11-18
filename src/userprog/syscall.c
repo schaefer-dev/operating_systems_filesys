@@ -38,7 +38,8 @@ syscall_handler (struct intr_frame *f UNUSED)
       }
 
     case SYS_EXEC:
-      
+      char *cmd_line = read_argument_at_index(f, 0);
+      syscall_exec(cmd_line);
       break;
 
     case SYS_WAIT:
@@ -133,7 +134,7 @@ read_argument_at_index(struct intr_frame *f, int arg_index){
 }
 
 void
-syscall_exit(int exit_type){
+syscall_exit(const int exit_type){
   char terminating_thread_name[16];
   strlcpy(terminating_thread_name, thread_name(), 16);
   printf("%s: exit(%d)\n", terminating_thread_name, exit_type);
@@ -143,4 +144,12 @@ syscall_exit(int exit_type){
 void
 syscall_halt(){
   shutdown_power_off();
+}
+
+void
+syscall_exec(const char *cmd_line){
+  // TODO must return pid -1, if the program cannot load or run for any reason
+  // TODO process_execute returns the thread id of the new process
+  pid_t pid = process_execute(cmd_line); 
+  f->eax = pid;  // return to process (pid)
 }
