@@ -4,6 +4,7 @@
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "devices/shutdown.h"
 
 static void syscall_handler (struct intr_frame *);
 
@@ -16,23 +17,28 @@ syscall_init (void)
 static void
 syscall_handler (struct intr_frame *f UNUSED) 
 {
-  int syscall_type = *((int*)f->esp);
+  int32_t *esp = (int32_t*) f->esp;
+
+  validate_pointer(esp);
+
+  // syscall type int is stored at adress esp
+  int32_t syscall_type = *esp;
 
   switch (syscall_type)
     {
     case SYS_HALT:
+      syscall_halt();
       break;
 
     case SYS_EXIT:
       {
-        int exit_type = *(((int*) f->esp) + 1);
-        char terminating_thread_name[16];
-        strlcpy(terminating_thread_name, thread_name(), 16);
-        printf("%s: exit(%d)\n", terminating_thread_name, exit_type);
+        int exit_type = read_argument_at_index(f, 0);
+        syscall_exit(exit_type);
         break;
       }
 
     case SYS_EXEC:
+      
       break;
 
     case SYS_WAIT:
@@ -98,6 +104,43 @@ syscall_handler (struct intr_frame *f UNUSED)
       break;
     }
   
+  // TODO remove this later
   printf ("system call!\n");
   thread_exit ();
+}
+
+void
+validate_pointer(uint32_t* pointer){
+  // Validation of pointer
+  if (pointer == NULL || !is_user_vaddr(pointer)){
+    // Exit if pointer is not valid
+    syscall_exit(-1);
+  }
+}
+  
+
+// Read argument of frame f at location shift.
+unit32_t
+read_argument_at_index(struct intr_frame *f, int arg_index){
+
+  uint32_t *esp = (uint32_t*) f->esp;
+  validate_pointer(esp);
+
+  uint32_t *argument = esp + 1 + index;
+  validate_pointer(esp);
+
+  return *argument;
+}
+
+void
+syscall_exit(int exit_type){
+  char terminating_thread_name[16];
+  strlcpy(terminating_thread_name, thread_name(), 16);
+  printf("%s: exit(%d)\n", terminating_thread_name, exit_type);
+
+}
+
+void
+syscall_halt(){
+  shutdown_power_off();
 }
