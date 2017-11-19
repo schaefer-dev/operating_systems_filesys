@@ -31,6 +31,9 @@ process_execute (const char *file_name)
   char *fn_copy;
   tid_t tid;
 
+  // file_name has to be smaller than PGSIZE
+  ASSERT(PGSIZE >= strlen(file_name);
+
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
   fn_copy = palloc_get_page (0);
@@ -38,8 +41,17 @@ process_execute (const char *file_name)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
 
-  // TODO calculate start_process
+  // argument parsing using strtok_r
+  char s[] = "  String to  tokenize. ";
+  char *token, *save_ptr;
+
+  for (token = strtok_r (s, " ", &save_ptr); token != NULL;
+      token = strtok_r (NULL, " ", &save_ptr))
+    printf ("'%s'\n", token);
+
   // thread_create is where the magic happens
+  // put tokens into fn_copy and create new aux to pass stuff
+  // pass aux which contains adresses to tokens
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
