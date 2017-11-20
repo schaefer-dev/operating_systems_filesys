@@ -17,6 +17,7 @@
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "devices/timer.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp, char* argument_buffer, int argcount);
@@ -61,6 +62,8 @@ start_process (void *file_name_)
   struct intr_frame if_;
   bool success;
 
+  // TODO move lexing to setup_stack and pass setup_stack *file_name_ to make this possible!
+  
   // TODO: Introduce end of page to check if still inside?
   char *argument_page = palloc_get_page (PAL_ZERO);
 
@@ -82,13 +85,38 @@ start_process (void *file_name_)
       token = strtok_r (NULL, " ", &save_ptr))
       {
         int tokensize = strlen(token);
+        printf("TOKEN: |%s| of length %i should be written\n", token, tokensize);
         current_argument_space -= tokensize + 1;
         strlcpy(current_argument_space, token, tokensize + 1);
+        printf("VALUE: |%s| was written\n", current_argument_space);
         if (strcmp(cmdline, ""))
           strlcpy(cmdline, token, tokensize + 1);
         argcount += 1;
       }
+
+  // DEBUG CODE BEGIN ---------------------------------------------------------------
+  if (file_name == NULL)
+    printf("file_name is NULL");
     
+  printf("executable name: |%s|\n", file_name);
+  printf("argcount value: %i\n", argcount);
+
+  printf("strlen of current_argument_space: %i\n", strlen(current_argument_space));
+  char* debug_iter = current_argument_space;
+  printf("arg0 |%s|\n", (char*)((debug_iter) + strlen(debug_iter) + 1));
+  debug_iter = debug_iter + strlen(debug_iter) + 1;
+  printf("arg1 |%s|\n", (char*)((debug_iter) + strlen(debug_iter) + 1));
+  debug_iter = debug_iter + strlen(debug_iter) + 1;
+  printf("arg2 |%s|\n", (char*)((debug_iter) + strlen(debug_iter) + 1));
+  debug_iter = debug_iter + strlen(debug_iter) + 1;
+  printf("arg3 |%s|\n", (char*)((debug_iter) + strlen(debug_iter) + 1));
+  debug_iter = debug_iter + strlen(debug_iter) + 1;
+  printf("arg4 |%s|\n", (char*)((debug_iter) + strlen(debug_iter) + 1));
+  debug_iter = debug_iter + strlen(debug_iter) + 1;
+  printf("arg5 |%s|\n", (char*)((debug_iter) + strlen(debug_iter) + 1));
+  debug_iter = debug_iter + strlen(debug_iter) + 1;
+  printf("arg6 |%s|\n", (char*)((debug_iter) + strlen(debug_iter) + 1));
+  // DEBUG CODE END ---------------------------------------------------------------
 
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
@@ -125,11 +153,8 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
-  int i = 0;
-  while (true){
-    i = 0;
-  }
-  return -1;
+  // TODO implement, just to see ouptut
+  timer_msleep(4000);
 }
 
 /* Free the current process's resources. */
