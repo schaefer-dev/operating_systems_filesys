@@ -31,8 +31,8 @@ process_execute (const char *file_name)
   char *fn_copy;
   tid_t tid;
 
-  // file_name has to be smaller than PGSIZE
-  ASSERT(PGSIZE >= strlen(file_name);
+  // TODO file_name has to be smaller than PGSIZE
+  // ASSERT (PGSIZE <= strlen(file_name));
 
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
@@ -63,15 +63,20 @@ start_process (void *file_name_)
 
   // TODO: Introduce end of page to check if still inside?
   char *argument_page = palloc_get_page (PAL_ZERO);
-  char *current_argument_space = argument_page + PGSIZE;
 
+  // TODO : think about this special case
   if (argument_page == NULL)
-    return TID_ERROR;
+    thread_exit ();
+
+  char *current_argument_space = argument_page + PGSIZE;
 
   int argcount = 0;
 
   // argument parsing using strtok_r
   char *token, *save_ptr;
+
+  // first token which is being read
+  char *cmdline = "";
 
   for (token = strtok_r (file_name, " ", &save_ptr); token != NULL;
       token = strtok_r (NULL, " ", &save_ptr))
@@ -79,6 +84,8 @@ start_process (void *file_name_)
         int tokensize = strlen(token);
         current_argument_space -= tokensize + 1;
         strlcpy(current_argument_space, token, tokensize + 1);
+        if (strcmp(cmdline, ""))
+          strlcpy(cmdline, token, tokensize + 1);
         argcount += 1;
       }
     
@@ -88,7 +95,7 @@ start_process (void *file_name_)
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
-  success = load (file_name, &if_.eip, &if_.esp, current_argument_space, argcount);
+  success = load (cmdline, &if_.eip, &if_.esp, current_argument_space, argcount);
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
@@ -118,6 +125,10 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
+  int i = 0;
+  while (true){
+    i = 0;
+  }
   return -1;
 }
 
@@ -225,7 +236,7 @@ struct Elf32_Phdr
 #define PF_W 2          /* Writable. */
 #define PF_R 4          /* Readable. */
 
-static bool setup_stack (void **esp);
+static bool setup_stack (void **esp, char* argument_buffer, int argcount);
 static bool validate_segment (const struct Elf32_Phdr *, struct file *);
 static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
                           uint32_t read_bytes, uint32_t zero_bytes,
@@ -332,7 +343,7 @@ load (const char *file_name, void (**eip) (void), void **esp, char* argument_buf
     }
 
   /* Set up stack. */
-  if (!setup_stack (esp, , argument_buffer, argcount))
+  if (!setup_stack (esp, argument_buffer, argcount))
     goto done;
 
   /* Start address. */
@@ -457,7 +468,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 /* Create a minimal stack by mapping a zeroed page at the top of
    user virtual memory. */
 static bool
-setup_stack (void **esp, char *argument_buffer, argcount) 
+setup_stack (void **esp, char *argument_buffer, int argcount) 
 {
   uint8_t *kpage;
   bool success = false;
@@ -465,6 +476,7 @@ setup_stack (void **esp, char *argument_buffer, argcount)
   kpage = palloc_get_page (PAL_USER | PAL_ZERO);
   if (kpage != NULL) 
     {
+      *esp = PHYS_BASE;
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
       if (success){
         char *argument_adress_array[argcount];
@@ -486,7 +498,7 @@ setup_stack (void **esp, char *argument_buffer, argcount)
         // writing word-align to stack;
         // TODO try "uintptr_t" if it doesnt work
         // TODO fill skipped with 0's
-        esp_iter -= (uint8_t) esp_iter % 4;
+        esp_iter -= ((int) esp_iter) % 4;
 
         // terminating char pointer
         esp_iter -= 1;

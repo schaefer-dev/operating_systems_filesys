@@ -3,10 +3,19 @@
 #include "lib/string.h"
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
+#include "threads/vaddr.h"
 #include "threads/thread.h"
 #include "devices/shutdown.h"
+#include "userprog/process.h"
 
 static void syscall_handler (struct intr_frame *);
+
+void syscall_init (void);
+void validate_pointer(void* pointer);
+void* read_argument_at_index(struct intr_frame *f, int arg_index);
+void syscall_exit(const int exit_type);
+void syscall_halt(void);
+void syscall_exec(const char *cmd_line, struct intr_frame *f);
 
 // TODO:
 // save list of file descriptors in thread
@@ -33,30 +42,34 @@ syscall_init (void)
 static void
 syscall_handler (struct intr_frame *f UNUSED) 
 {
-  int32_t *esp = (int32_t*) f->esp;
+  void *esp = (int32_t*) f->esp;
 
   validate_pointer(esp);
 
   // syscall type int is stored at adress esp
-  int32_t syscall_type = *esp;
+  int32_t syscall_type = *((int*)esp);
 
   switch (syscall_type)
     {
     case SYS_HALT:
-      syscall_halt();
-      break;
+      {
+        syscall_halt();
+        break;
+      }
 
     case SYS_EXIT:
       {
-        int exit_type = read_argument_at_index(f, 0);
+        int exit_type = *((int*) read_argument_at_index(f, 0));
         syscall_exit(exit_type);
         break;
       }
 
     case SYS_EXEC:
-      char *cmd_line = read_argument_at_index(f, 0);
-      syscall_exec(cmd_line);
-      break;
+      {
+        char *cmd_line = (char*) read_argument_at_index(f, 0);
+        syscall_exec(cmd_line, f);
+        break;
+      }
 
     case SYS_WAIT:
       break;
@@ -127,7 +140,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 }
 
 void
-validate_pointer(uint32_t* pointer){
+validate_pointer(void* pointer){
   // Validation of pointer
   if (pointer == NULL || !is_user_vaddr(pointer)){
     // Exit if pointer is not valid
@@ -137,16 +150,16 @@ validate_pointer(uint32_t* pointer){
   
 
 // Read argument of frame f at location shift.
-unit32_t
+void *
 read_argument_at_index(struct intr_frame *f, int arg_index){
 
-  uint32_t *esp = (uint32_t*) f->esp;
+  void *esp = (void*) f->esp;
   validate_pointer(esp);
 
-  uint32_t *argument = esp + 1 + index;
-  validate_pointer(esp);
+  void *argument = esp + 1 + arg_index;
+  validate_pointer(argument);
 
-  return *argument;
+  return argument;
 }
 
 void
@@ -164,10 +177,10 @@ syscall_halt(){
 }
 
 void
-syscall_exec(const char *cmd_line){
+syscall_exec(const char *cmd_line, struct intr_frame *f){
   // TODO make sure to not change program which is running during runtime (see project description)
   // TODO must return pid -1 (=TID_ERROR), if the program cannot load or run for any reason
   // TODO process_execute returns the thread id of the new process
-  pid_t pid = process_execute(cmd_line); 
-  f->eax = pid;  // return to process (pid)
+  tid_t tid = process_execute(cmd_line); 
+  f->eax = tid;  // return to process (tid)
 }
