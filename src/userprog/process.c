@@ -103,19 +103,12 @@ start_process (void *file_name_)
 
   printf("strlen of current_argument_space: %i\n", strlen(current_argument_space));
   char* debug_iter = current_argument_space;
-  printf("arg0 |%s|\n", (char*)((debug_iter) + strlen(debug_iter) + 1));
+  printf("arg1 |%s|\n", (char*)((debug_iter)));
+  printf("debug_iter arg1 length %i\n", strlen(debug_iter));
   debug_iter = debug_iter + strlen(debug_iter) + 1;
-  printf("arg1 |%s|\n", (char*)((debug_iter) + strlen(debug_iter) + 1));
+  printf("arg0 |%s|\n", (char*)((debug_iter)));
+  printf("debug_iter arg0 length %i\n", strlen(debug_iter));
   debug_iter = debug_iter + strlen(debug_iter) + 1;
-  printf("arg2 |%s|\n", (char*)((debug_iter) + strlen(debug_iter) + 1));
-  debug_iter = debug_iter + strlen(debug_iter) + 1;
-  printf("arg3 |%s|\n", (char*)((debug_iter) + strlen(debug_iter) + 1));
-  debug_iter = debug_iter + strlen(debug_iter) + 1;
-  printf("arg4 |%s|\n", (char*)((debug_iter) + strlen(debug_iter) + 1));
-  debug_iter = debug_iter + strlen(debug_iter) + 1;
-  printf("arg5 |%s|\n", (char*)((debug_iter) + strlen(debug_iter) + 1));
-  debug_iter = debug_iter + strlen(debug_iter) + 1;
-  printf("arg6 |%s|\n", (char*)((debug_iter) + strlen(debug_iter) + 1));
   // DEBUG CODE END ---------------------------------------------------------------
 
   /* Initialize interrupt frame and load executable. */
@@ -123,7 +116,7 @@ start_process (void *file_name_)
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
-  success = load (cmdline, &if_.eip, &if_.esp, current_argument_space, argcount);
+  success = load (file_name, &if_.eip, &if_.esp, current_argument_space, argcount);
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
@@ -286,6 +279,9 @@ load (const char *file_name, void (**eip) (void), void **esp, char* argument_buf
   if (t->pagedir == NULL) 
     goto done;
   process_activate ();
+
+  // DEBUG:
+  printf("file is now being opened in load: |%s|\n", file_name);
 
   /* Open executable file. */
   file = filesys_open (file_name);
