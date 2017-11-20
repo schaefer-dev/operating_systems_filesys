@@ -19,7 +19,7 @@
 #include "threads/vaddr.h"
 
 static thread_func start_process NO_RETURN;
-static bool load (const char *cmdline, void (**eip) (void), void **esp);
+static bool load (const char *cmdline, void (**eip) (void), void **esp, char* argument_buffer, int argcount);
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -41,14 +41,6 @@ process_execute (const char *file_name)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
 
-  // argument parsing using strtok_r
-  char s[] = "  String to  tokenize. ";
-  char *token, *save_ptr;
-
-  for (token = strtok_r (s, " ", &save_ptr); token != NULL;
-      token = strtok_r (NULL, " ", &save_ptr))
-    printf ("'%s'\n", token);
-
   // thread_create is where the magic happens
   // put tokens into fn_copy and create new aux to pass stuff
   // pass aux which contains adresses to tokens
@@ -69,15 +61,38 @@ start_process (void *file_name_)
   struct intr_frame if_;
   bool success;
 
+  // TODO: Introduce end of page to check if still inside?
+  char *argument_page = palloc_get_page (PAL_ZERO);
+  char *current_argument_space = argument_page + PGSIZE;
+
+  if (argument_page == NULL)
+    return TID_ERROR;
+
+  int argcount = 0;
+
+  // argument parsing using strtok_r
+  char *token, *save_ptr;
+
+  for (token = strtok_r (file_name, " ", &save_ptr); token != NULL;
+      token = strtok_r (NULL, " ", &save_ptr))
+      {
+        int tokensize = strlen(token);
+        current_argument_space -= tokensize + 1;
+        strlcpy(current_argument_space, token, tokensize + 1);
+        argcount += 1;
+      }
+    
+
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
-  success = load (file_name, &if_.eip, &if_.esp);
+  success = load (file_name, &if_.eip, &if_.esp, current_argument_space, argcount);
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
+  palloc_free_page (argument_page);
   if (!success) 
     thread_exit ();
 
@@ -221,7 +236,7 @@ static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
    and its initial stack pointer into *ESP.
    Returns true if successful, false otherwise. */
 bool
-load (const char *file_name, void (**eip) (void), void **esp) 
+load (const char *file_name, void (**eip) (void), void **esp, char* argument_buffer, int argcount) 
 {
   struct thread *t = thread_current ();
   struct Elf32_Ehdr ehdr;
@@ -317,7 +332,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
     }
 
   /* Set up stack. */
-  if (!setup_stack (esp))
+  if (!setup_stack (esp, , argument_buffer, argcount))
     goto done;
 
   /* Start address. */
@@ -442,7 +457,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 /* Create a minimal stack by mapping a zeroed page at the top of
    user virtual memory. */
 static bool
-setup_stack (void **esp) 
+setup_stack (void **esp, char *argument_buffer, argcount) 
 {
   uint8_t *kpage;
   bool success = false;
@@ -451,8 +466,52 @@ setup_stack (void **esp)
   if (kpage != NULL) 
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
-      if (success)
-        *esp = PHYS_BASE - 12; // TODO should not be hardcoded
+      if (success){
+        char *argument_adress_array[argcount];
+
+        int i = 0;
+        char *esp_iter = (char*) *esp;
+
+        // TODO only read at most arguments for 1 full page
+
+        // writing argument values to stack
+        for (i = 0; i < argcount; i++){
+          int argument_size = strlen(argument_buffer);
+          esp_iter -= argument_size + 1;
+          strlcpy(esp_iter, argument_buffer, argument_size + 1);
+          argument_adress_array[i] = esp_iter;
+          argument_buffer += argument_size + 1;
+        } 
+
+        // writing word-align to stack;
+        // TODO try "uintptr_t" if it doesnt work
+        // TODO fill skipped with 0's
+        esp_iter -= (uint8_t) esp_iter % 4;
+
+        // terminating char pointer
+        esp_iter -= 1;
+        esp_iter = 0;
+
+        // writing argument references to stack
+        for (i = 0; i < argcount; i++){
+          esp_iter -= 1;
+          esp_iter = argument_adress_array[i];
+        }
+
+        // write argv reference to stack
+        esp_iter -= 1;
+        esp_iter = esp_iter + 1;
+
+        // write argc to stack
+        esp_iter -= 1;
+        esp_iter = argcount;
+
+        // write return adress to stack
+        esp_iter -= 1;
+        esp_iter = 0;
+
+        *esp = esp_iter;
+      }
       else
         palloc_free_page (kpage);
     }

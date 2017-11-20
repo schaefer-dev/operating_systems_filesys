@@ -12,6 +12,8 @@ static void syscall_handler (struct intr_frame *);
 // save list of file descriptors in thread
 // save list of child processes in thread
 // save partent process in thread
+// struct child-thread which contains *thread, parent,
+
 // parse arguments in start_process and pass **arguments and num_arguments
 // to load and to setup_stack where the real work will be done
 // setup_stack setups stack like described in description
@@ -19,8 +21,7 @@ static void syscall_handler (struct intr_frame *);
 // lock file system operations with lock in syscall.c
 // make sure to mark executables as "non writable" as explained in description
 // nicht nach stin und stout lesen
-// file descriptor table in thread as list
-// struct child-thread which contains *thread, parent, 
+// file descriptor table in thread as list 
 
 
 void
@@ -150,6 +151,7 @@ read_argument_at_index(struct intr_frame *f, int arg_index){
 
 void
 syscall_exit(const int exit_type){
+  // check for held locks
   char terminating_thread_name[16];
   strlcpy(terminating_thread_name, thread_name(), 16);
   printf("%s: exit(%d)\n", terminating_thread_name, exit_type);
