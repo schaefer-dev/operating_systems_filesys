@@ -8,6 +8,21 @@
 
 static void syscall_handler (struct intr_frame *);
 
+// TODO:
+// save list of file descriptors in thread
+// save list of child processes in thread
+// save partent process in thread
+// parse arguments in start_process and pass **arguments and num_arguments
+// to load and to setup_stack where the real work will be done
+// setup_stack setups stack like described in description
+
+// lock file system operations with lock in syscall.c
+// make sure to mark executables as "non writable" as explained in description
+// nicht nach stin und stout lesen
+// file descriptor table in thread as list
+// struct child-thread which contains *thread, parent, 
+
+
 void
 syscall_init (void) 
 {
@@ -148,7 +163,8 @@ syscall_halt(){
 
 void
 syscall_exec(const char *cmd_line){
-  // TODO must return pid -1, if the program cannot load or run for any reason
+  // TODO make sure to not change program which is running during runtime (see project description)
+  // TODO must return pid -1 (=TID_ERROR), if the program cannot load or run for any reason
   // TODO process_execute returns the thread id of the new process
   pid_t pid = process_execute(cmd_line); 
   f->eax = pid;  // return to process (pid)
