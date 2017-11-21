@@ -97,13 +97,13 @@ syscall_handler (struct intr_frame *f UNUSED)
     case SYS_READ:
       break;
 
-int syscall_write(int fd, const void *buffer, unsigned size);
     case SYS_WRITE:
       {
         int fd = *((int*)read_argument_at_index(f,0)); 
         void *buffer = *((void**)read_argument_at_index(f,sizeof(int))); 
         unsigned size = *((unsigned*)read_argument_at_index(f,2*sizeof(int))); 
-        syscall_write(fd, buffer, size);
+        int returnvalue = syscall_write(fd, buffer, size);
+        f->eax = returnvalue;
         break;
       }
 
@@ -151,8 +151,8 @@ int syscall_write(int fd, const void *buffer, unsigned size);
   
 
   // TODO remove this later
-  printf ("DEBUG: Forced thread_exit after FIRST syscall!\n");
-  thread_exit ();
+  //printf ("DEBUG: Forced thread_exit after FIRST syscall!\n");
+  //thread_exit ();
 }
 
 void
@@ -181,10 +181,8 @@ read_argument_at_index(struct intr_frame *f, int arg_offset){
 void
 syscall_exit(const int exit_type){
   // check for held locks
-  char terminating_thread_name[16];
-  strlcpy(terminating_thread_name, thread_name(), 16);
-  printf("%s: exit(%d)\n", terminating_thread_name, exit_type);
-
+  printf("%s: exit(%d)\n", thread_current()->name, exit_type);
+  thread_exit();
 }
 
 int
