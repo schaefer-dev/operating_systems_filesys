@@ -2,6 +2,6 @@
 #define USERPROG_SYSCALL_H
 
 void syscall_init (void);
-void validate_pointer(void* pointer);
+void validate_pointer(const void* pointer);
 
 #endif /* userprog/syscall.h */

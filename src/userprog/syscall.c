@@ -7,15 +7,20 @@
 #include "threads/thread.h"
 #include "devices/shutdown.h"
 #include "userprog/process.h"
+#include <kernel/console.h>
+#include "threads/synch.h"
 
 static void syscall_handler (struct intr_frame *);
 
 void syscall_init (void);
-void validate_pointer(void* pointer);
+void validate_pointer(const void* pointer);
 void* read_argument_at_index(struct intr_frame *f, int arg_index);
 void syscall_exit(const int exit_type);
 void syscall_halt(void);
 void syscall_exec(const char *cmd_line, struct intr_frame *f);
+int syscall_write(int fd, const void *buffer, unsigned size);
+
+struct lock lock_filesystem;
 
 // TODO:
 // save list of file descriptors in thread
@@ -37,6 +42,7 @@ void
 syscall_init (void) 
 {
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
+  lock_init (&lock_filesystem);
 }
 
 static void
@@ -140,7 +146,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 }
 
 void
-validate_pointer(void* pointer){
+validate_pointer(const void* pointer){
   // Validation of pointer
   if (pointer == NULL || !is_user_vaddr(pointer)){
     // Exit if pointer is not valid
@@ -168,6 +174,39 @@ syscall_exit(const int exit_type){
   char terminating_thread_name[16];
   strlcpy(terminating_thread_name, thread_name(), 16);
   printf("%s: exit(%d)\n", terminating_thread_name, exit_type);
+
+}
+
+int
+syscall_write(int fd, const void *buffer, unsigned size){
+  struct file_desc *fd_struct;
+  int returnvalue = 0;
+
+  validate_pointer(buffer);
+
+  // TODO maybe split buffer if very large
+
+  // use temporary buffer to make sure we don't overflow?
+  if (fd == STDOUT_FILENO){
+    putbuf(buffer,size);
+    returnvalue = size;
+  }
+  else{
+    // TODO read fd_struct and get file handler
+    
+    // check if file NULL
+    if (fd_struct != NULL){
+      returnvalue = -1;
+    }
+
+    lock_acquire(&lock_filesystem);
+    // TODO I/O Operations
+    lock_release(&lock_filesystem);
+
+    returnvalue = size;
+  }
+
+  return returnvalue;
 
 }
 
