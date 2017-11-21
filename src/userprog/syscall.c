@@ -19,6 +19,7 @@ void syscall_exit(const int exit_type);
 void syscall_halt(void);
 void syscall_exec(const char *cmd_line, struct intr_frame *f);
 int syscall_write(int fd, const void *buffer, unsigned size);
+bool syscall_create_file(char* file, unsigned initial_size);
 
 struct lock lock_filesystem;
 
@@ -83,7 +84,12 @@ syscall_handler (struct intr_frame *f UNUSED)
       break;
 
     case SYS_CREATE:
-      break;
+      {
+        char* file_name= (char*) read_argument_at_index(f,0);
+        unsigned initial_size = (unsigned) *((unsigned*)read_argument_at_index(f, size(char*));
+        f->eax = syscall_create_file(file_name, initial_size);
+        break;
+      }
 
     case SYS_REMOVE:
       break;
@@ -92,7 +98,10 @@ syscall_handler (struct intr_frame *f UNUSED)
       break;
 
     case SYS_FILESIZE:
-      break;
+      {
+
+        break;
+      }
 
     case SYS_READ:
       break;
@@ -232,4 +241,12 @@ syscall_exec(const char *cmd_line, struct intr_frame *f){
   // TODO process_execute returns the thread id of the new process
   tid_t tid = process_execute(cmd_line); 
   f->eax = tid;  // return to process (tid)
+}
+
+bool
+syscall_create_file(char* file, unsigned initial_size){
+  lock_acquire(&lock_filesystem);
+  bool success = filesys_create(file, initial_size);
+  lock_release(&lock_filesystem);
+  return success;
 }
