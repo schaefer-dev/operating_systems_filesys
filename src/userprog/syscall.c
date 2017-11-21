@@ -48,7 +48,7 @@ syscall_init (void)
 static void
 syscall_handler (struct intr_frame *f UNUSED) 
 {
-  int *esp = (int*) f->esp;
+  void *esp = (int*) f->esp;
 
   //printf("DEBUG: Syscall ESP is |%p|\n", esp);
 
@@ -99,13 +99,13 @@ syscall_handler (struct intr_frame *f UNUSED)
 
     case SYS_WRITE:
       {
+        lock_acquire(&lock_filesystem);
         int fd = *((int*)read_argument_at_index(f,0)); 
-        //void *buffer = *((void**)read_argument_at_index(f,sizeof(int))); 
-        //unsigned size = *((unsigned*)read_argument_at_index(f,2*sizeof(int))); 
-        char *buffer = (char*) *((esp+2));
-        unsigned size = (unsigned*) *(esp+3);
+        void *buffer = *((void**)read_argument_at_index(f,sizeof(int))); 
+        unsigned size = *((unsigned*)read_argument_at_index(f,2*sizeof(int))); 
         int returnvalue = syscall_write(fd, buffer, size);
         f->eax = returnvalue;
+        lock_release(&lock_filesystem);
         break;
       }
 
@@ -182,7 +182,7 @@ read_argument_at_index(struct intr_frame *f, int arg_offset){
 
 void
 syscall_exit(const int exit_type){
-  // check for held lock
+  // check for held locks
   printf("%s: exit(%d)\n", thread_current()->name, exit_type);
   thread_exit();
 }
@@ -191,16 +191,14 @@ int
 syscall_write(int fd, const void *buffer, unsigned size){
   struct file_desc *fd_struct;
   int returnvalue = 0;
-  lock_acquire(&lock_filesystem);
 
-  //printf("DEBUG: Write started with fd |%i|!\n", fd);
+  //printf("DEBUG: write started with fd |%i|!\n", fd);
 
   validate_pointer(buffer);
 
   // use temporary buffer to make sure we don't overflow?
   if (fd == STDOUT_FILENO){
-    printf("DEBUG: putbuff called with size |%i| and pointer |%p|!\n", size, buffer);
-    printf("buffer String content: |%s|\n", buffer);
+    //printf("DEBUG: putbuff called with size |%i| and pointer |%p| with content |%s|!\n", size, buffer, buffer);
     putbuf(buffer,size);
     returnvalue = size;
   }
@@ -212,12 +210,11 @@ syscall_write(int fd, const void *buffer, unsigned size){
       returnvalue = -1;
     }
 
-    // TODO I/O Operations with LOCK
+    // TODO I/O Operations, make sure its locked here
 
     returnvalue = size;
   }
 
-  lock_release(&lock_filesystem);
   return returnvalue;
 
 }
