@@ -213,6 +213,8 @@ thread_create (const char *name, int priority,
   /* Add to run queue. */
   thread_unblock (t);
 
+  printf("DEBUG: Thread Stack pointer after thread_create |%p|\n", t->stack);
+
   return tid;
 }
 

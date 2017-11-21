@@ -119,9 +119,10 @@ start_process (void *file_name_)
   success = load (file_name, &if_.eip, &if_.esp, current_argument_space, argcount);
 
 
-  /* If load failed, quit. */
   palloc_free_page (file_name);
   palloc_free_page (argument_page);
+
+  /* If load failed, quit. */
   if (!success) 
     thread_exit ();
   else
@@ -521,6 +522,9 @@ setup_stack (void **esp, char *argument_buffer, int argcount)
           printf("DEBUG: |%p| arg written to stack: |%s|\n", esp_iter, esp_iter);
         } 
 
+        printf("DEBUG: Arg1 value: |%s|\n", argument_adress_array[0]);
+        printf("DEBUG: Arg0 value: |%s|\n", argument_adress_array[1]);
+
         // writing word-align to stack;
         // TODO try "uintptr_t" if it doesnt work
         // TODO fill skipped with 0's
@@ -557,6 +561,13 @@ setup_stack (void **esp, char *argument_buffer, int argcount)
         printf("DEBUG: |%p| Written to stack: |%i|\n", int_esp_iter, *int_esp_iter);
 
         *esp = int_esp_iter;
+        int debug = 1;
+        while (true){
+          if (debug==1)
+            debug = 0;
+          else
+            debug = 1;
+        }
 
         printf("DEBUG: int iter is: |%p|\n", int_esp_iter);  
 

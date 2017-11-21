@@ -48,9 +48,9 @@ syscall_init (void)
 static void
 syscall_handler (struct intr_frame *f UNUSED) 
 {
-  void *esp = (int*) f->esp;
+  int *esp = (int*) f->esp;
 
-  printf("DEBUG: Syscall ESP is |%p|\n", esp);
+  //printf("DEBUG: Syscall ESP is |%p|\n", esp);
 
   validate_pointer(esp);
 
@@ -100,8 +100,10 @@ syscall_handler (struct intr_frame *f UNUSED)
     case SYS_WRITE:
       {
         int fd = *((int*)read_argument_at_index(f,0)); 
-        void *buffer = *((void**)read_argument_at_index(f,sizeof(int))); 
-        unsigned size = *((unsigned*)read_argument_at_index(f,2*sizeof(int))); 
+        //void *buffer = *((void**)read_argument_at_index(f,sizeof(int))); 
+        //unsigned size = *((unsigned*)read_argument_at_index(f,2*sizeof(int))); 
+        char *buffer = (char*) *((esp+2));
+        unsigned size = (unsigned*) *(esp+3);
         int returnvalue = syscall_write(fd, buffer, size);
         f->eax = returnvalue;
         break;
@@ -180,7 +182,7 @@ read_argument_at_index(struct intr_frame *f, int arg_offset){
 
 void
 syscall_exit(const int exit_type){
-  // check for held locks
+  // check for held lock
   printf("%s: exit(%d)\n", thread_current()->name, exit_type);
   thread_exit();
 }
@@ -189,8 +191,9 @@ int
 syscall_write(int fd, const void *buffer, unsigned size){
   struct file_desc *fd_struct;
   int returnvalue = 0;
+  lock_acquire(&lock_filesystem);
 
-  printf("DEBUG: Write started with fd |%i|!\n", fd);
+  //printf("DEBUG: Write started with fd |%i|!\n", fd);
 
   validate_pointer(buffer);
 
@@ -209,13 +212,12 @@ syscall_write(int fd, const void *buffer, unsigned size){
       returnvalue = -1;
     }
 
-    lock_acquire(&lock_filesystem);
-    // TODO I/O Operations
-    lock_release(&lock_filesystem);
+    // TODO I/O Operations with LOCK
 
     returnvalue = size;
   }
 
+  lock_release(&lock_filesystem);
   return returnvalue;
 
 }
