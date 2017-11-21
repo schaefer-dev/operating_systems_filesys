@@ -504,7 +504,7 @@ setup_stack (void **esp, char *argument_buffer, int argcount)
       *esp = PHYS_BASE;
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
       if (success){
-        char *argument_adress_array[argcount];
+        char* argument_adress_array[argcount];
 
         int i = 0;
         char *esp_iter = (char*) *esp;
@@ -527,7 +527,7 @@ setup_stack (void **esp, char *argument_buffer, int argcount)
         esp_iter -= ((int) esp_iter) % 4;
         printf("DEBUG: Written to stack: WORD_ALIGN\n");
 
-        int *int_esp_iter = (int) esp_iter;
+        char **int_esp_iter = (char**) esp_iter;
 
         // terminating char pointer
         int_esp_iter -= 1;
@@ -558,7 +558,9 @@ setup_stack (void **esp, char *argument_buffer, int argcount)
 
         *esp = int_esp_iter;
 
-        printf("DEBUG: Stack setup finished successfully!\n");
+        printf("DEBUG: int iter is: |%p|\n", int_esp_iter);  
+
+        printf("DEBUG: Stack setup finished successfully! ESP now set to |%p|\n", *esp);
       }
       else
         palloc_free_page (kpage);

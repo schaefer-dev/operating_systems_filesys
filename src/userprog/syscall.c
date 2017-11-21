@@ -48,7 +48,9 @@ syscall_init (void)
 static void
 syscall_handler (struct intr_frame *f UNUSED) 
 {
-  void *esp = (int32_t*) f->esp;
+  void *esp = (int*) f->esp;
+
+  printf("DEBUG: Syscall ESP is |%p|\n", esp);
 
   validate_pointer(esp);
 
@@ -147,8 +149,9 @@ int syscall_write(int fd, const void *buffer, unsigned size);
       break;
     }
   
+
   // TODO remove this later
-  printf ("system call!\n");
+  printf ("DEBUG: Forced thread_exit after FIRST syscall!\n");
   thread_exit ();
 }
 
@@ -189,12 +192,9 @@ syscall_write(int fd, const void *buffer, unsigned size){
   struct file_desc *fd_struct;
   int returnvalue = 0;
 
-  printf("DEBUG: Write started!\n");
+  printf("DEBUG: Write started with fd |%i|!\n", fd);
 
   validate_pointer(buffer);
-
-  // TODO maybe split buffer if very large
-  printf("Value of fd is |%i|\n", fd);
 
   // use temporary buffer to make sure we don't overflow?
   if (fd == STDOUT_FILENO){
