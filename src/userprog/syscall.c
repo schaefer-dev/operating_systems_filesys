@@ -14,7 +14,7 @@ static void syscall_handler (struct intr_frame *);
 
 void syscall_init (void);
 void validate_pointer(const void* pointer);
-void* read_argument_at_index(struct intr_frame *f, int arg_index);
+void* read_argument_at_index(struct intr_frame *f, int arg_offset);
 void syscall_exit(const int exit_type);
 void syscall_halt(void);
 void syscall_exec(const char *cmd_line, struct intr_frame *f);
@@ -95,8 +95,15 @@ syscall_handler (struct intr_frame *f UNUSED)
     case SYS_READ:
       break;
 
+int syscall_write(int fd, const void *buffer, unsigned size);
     case SYS_WRITE:
-      break;
+      {
+        int fd = *((int*)read_argument_at_index(f,0)); 
+        void *buffer = *((void**)read_argument_at_index(f,sizeof(int))); 
+        unsigned size = *((unsigned*)read_argument_at_index(f,2*sizeof(int))); 
+        syscall_write(fd, buffer, size);
+        break;
+      }
 
     case SYS_SEEK:
       break;
@@ -157,12 +164,12 @@ validate_pointer(const void* pointer){
 
 // Read argument of frame f at location shift.
 void *
-read_argument_at_index(struct intr_frame *f, int arg_index){
+read_argument_at_index(struct intr_frame *f, int arg_offset){
 
   void *esp = (void*) f->esp;
   validate_pointer(esp);
 
-  void *argument = esp + 1 + arg_index;
+  void *argument = esp + sizeof(int) + arg_offset;
   validate_pointer(argument);
 
   return argument;
@@ -182,12 +189,17 @@ syscall_write(int fd, const void *buffer, unsigned size){
   struct file_desc *fd_struct;
   int returnvalue = 0;
 
+  printf("DEBUG: Write started!\n");
+
   validate_pointer(buffer);
 
   // TODO maybe split buffer if very large
+  printf("Value of fd is |%i|\n", fd);
 
   // use temporary buffer to make sure we don't overflow?
   if (fd == STDOUT_FILENO){
+    printf("DEBUG: putbuff called with size |%i| and pointer |%p|!\n", size, buffer);
+    printf("buffer String content: |%s|\n", buffer);
     putbuf(buffer,size);
     returnvalue = size;
   }

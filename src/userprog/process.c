@@ -65,7 +65,7 @@ start_process (void *file_name_)
   // TODO move lexing to setup_stack and pass setup_stack *file_name_ to make this possible!
   
   // TODO: Introduce end of page to check if still inside?
-  char *argument_page = palloc_get_page (PAL_ZERO);
+  char *argument_page = palloc_get_page (PAL_ZERO | PAL_USER);
 
   // TODO : think about this special case
   if (argument_page == NULL)
@@ -118,11 +118,15 @@ start_process (void *file_name_)
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (file_name, &if_.eip, &if_.esp, current_argument_space, argcount);
 
+
   /* If load failed, quit. */
   palloc_free_page (file_name);
   palloc_free_page (argument_page);
   if (!success) 
     thread_exit ();
+  else
+    printf("DEBUG: Load finished succesfully!\n");
+
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -514,36 +518,47 @@ setup_stack (void **esp, char *argument_buffer, int argcount)
           strlcpy(esp_iter, argument_buffer, argument_size + 1);
           argument_adress_array[i] = esp_iter;
           argument_buffer += argument_size + 1;
+          printf("DEBUG: |%p| arg written to stack: |%s|\n", esp_iter, esp_iter);
         } 
 
         // writing word-align to stack;
         // TODO try "uintptr_t" if it doesnt work
         // TODO fill skipped with 0's
         esp_iter -= ((int) esp_iter) % 4;
+        printf("DEBUG: Written to stack: WORD_ALIGN\n");
+
+        int *int_esp_iter = (int) esp_iter;
 
         // terminating char pointer
-        esp_iter -= 1;
-        esp_iter = 0;
+        int_esp_iter -= 1;
+        *int_esp_iter = 0;
+        printf("DEBUG: |%p| Written to stack: |%i|\n", int_esp_iter, *int_esp_iter);
 
         // writing argument references to stack
         for (i = 0; i < argcount; i++){
-          esp_iter -= 1;
-          esp_iter = argument_adress_array[i];
+          int_esp_iter -= 1;
+          *int_esp_iter = argument_adress_array[i];
+          printf("DEBUG: |%p| arg_reference written to stack: |%p|\n", int_esp_iter, *int_esp_iter);
         }
 
         // write argv reference to stack
-        esp_iter -= 1;
-        esp_iter = esp_iter + 1;
+        int_esp_iter -= 1;
+        *int_esp_iter = int_esp_iter + 1;
+        printf("DEBUG: |%p| Written to stack: |%p|\n", int_esp_iter, *int_esp_iter);
 
         // write argc to stack
-        esp_iter -= 1;
-        esp_iter = argcount;
+        int_esp_iter -= 1;
+        *int_esp_iter = argcount;
+        printf("DEBUG: |%p| Written to stack: |%i|\n", int_esp_iter, *int_esp_iter);
 
         // write return adress to stack
-        esp_iter -= 1;
-        esp_iter = 0;
+        int_esp_iter -= 1;
+        *int_esp_iter = 0;
+        printf("DEBUG: |%p| Written to stack: |%i|\n", int_esp_iter, *int_esp_iter);
 
-        *esp = esp_iter;
+        *esp = int_esp_iter;
+
+        printf("DEBUG: Stack setup finished successfully!\n");
       }
       else
         palloc_free_page (kpage);
