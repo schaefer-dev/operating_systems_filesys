@@ -97,7 +97,7 @@ struct thread
     struct list file_list;
 
     /* Counter to give every file in file list a unique fd */
-    unsigned currend_fd; 
+    unsigned current_fd; 
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
