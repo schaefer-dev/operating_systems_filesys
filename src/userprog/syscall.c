@@ -90,7 +90,8 @@ syscall_handler (struct intr_frame *f UNUSED)
       {
         // TODO: check if length of file_name has to be checked //
         char* file_name= (char*) read_argument_at_index(f,0);
-        unsigned initial_size = (unsigned) *((unsigned*)read_argument_at_index(f, strlen(file_name)*sizeof(char)+sizeof(char)));
+        unsigned initial_size = *((unsigned*) read_argument_at_index(f,1));
+        printf("file_name= |%s| and initial_size=|%u|", file_name, initial_size);
         f->eax = syscall_create(file_name, initial_size);
         break;
       }
@@ -188,10 +189,10 @@ validate_pointer(const void* pointer){
 void *
 read_argument_at_index(struct intr_frame *f, int arg_offset){
 
-  void *esp = (void*) f->esp;
+  int *esp = (int*) f->esp;
   validate_pointer(esp);
 
-  void *argument = esp + sizeof(int) + arg_offset;
+  int *argument = esp + 1 + arg_offset;
   validate_pointer(argument);
 
   return argument;
