@@ -22,6 +22,8 @@
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp, char* argument_buffer, int argcount);
 
+static bool DEBUG_ENABLED = false;
+
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
    before process_execute() returns.  Returns the new process's
@@ -46,6 +48,9 @@ process_execute (const char *file_name)
   // put tokens into fn_copy and create new aux to pass stuff
   // pass aux which contains adresses to tokens
 
+  char *ptr;
+  file_name = strtok_r((char*) file_name, " ", &ptr);
+  
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
@@ -85,30 +90,32 @@ start_process (void *file_name_)
       token = strtok_r (NULL, " ", &save_ptr))
       {
         int tokensize = strlen(token);
-        printf("TOKEN: |%s| of length %i should be written\n", token, tokensize);
+        //printf("TOKEN: |%s| of length %i should be written\n", token, tokensize);
         current_argument_space -= tokensize + 1;
         strlcpy(current_argument_space, token, tokensize + 1);
-        printf("VALUE: |%s| was written\n", current_argument_space);
+        //printf("VALUE: |%s| was written\n", current_argument_space);
         if (strcmp(cmdline, ""))
           strlcpy(cmdline, token, tokensize + 1);
         argcount += 1;
       }
 
   // DEBUG CODE BEGIN ---------------------------------------------------------------
-  if (file_name == NULL)
-    printf("file_name is NULL");
-    
-  printf("executable name: |%s|\n", file_name);
-  printf("argcount value: %i\n", argcount);
+  if (DEBUG_ENABLED){
+    if (file_name == NULL)
+      printf("file_name is NULL");
 
-  printf("strlen of current_argument_space: %i\n", strlen(current_argument_space));
-  char* debug_iter = current_argument_space;
-  printf("arg1 |%s|\n", (char*)((debug_iter)));
-  printf("debug_iter arg1 length %i\n", strlen(debug_iter));
-  debug_iter = debug_iter + strlen(debug_iter) + 1;
-  printf("arg0 |%s|\n", (char*)((debug_iter)));
-  printf("debug_iter arg0 length %i\n", strlen(debug_iter));
-  debug_iter = debug_iter + strlen(debug_iter) + 1;
+    printf("executable name: |%s|\n", file_name);
+    printf("argcount value: %i\n", argcount);
+
+    printf("strlen of current_argument_space: %i\n", strlen(current_argument_space));
+    char* debug_iter = current_argument_space;
+    printf("arg1 |%s|\n", (char*)((debug_iter)));
+    printf("debug_iter arg1 length %i\n", strlen(debug_iter));
+    debug_iter = debug_iter + strlen(debug_iter) + 1;
+    printf("arg0 |%s|\n", (char*)((debug_iter)));
+    printf("debug_iter arg0 length %i\n", strlen(debug_iter));
+    debug_iter = debug_iter + strlen(debug_iter) + 1;
+  }
   // DEBUG CODE END ---------------------------------------------------------------
 
   /* Initialize interrupt frame and load executable. */
@@ -125,7 +132,8 @@ start_process (void *file_name_)
   if (!success) 
     thread_exit ();
   else
-    printf("DEBUG: Load finished succesfully!\n");
+    if (DEBUG_ENABLED)
+      printf("DEBUG: Load finished succesfully!\n");
 
 
   /* Start the user process by simulating a return from an
@@ -151,7 +159,7 @@ int
 process_wait (tid_t child_tid UNUSED) 
 {
   // TODO implement, just to see ouptut
-  timer_msleep(4000);
+  timer_msleep(100);
 }
 
 /* Free the current process's resources. */
@@ -283,9 +291,6 @@ load (const char *file_name, void (**eip) (void), void **esp, char* argument_buf
   if (t->pagedir == NULL) 
     goto done;
   process_activate ();
-
-  // DEBUG:
-  printf("file is now being opened in load: |%s|\n", file_name);
 
   /* Open executable file. */
   file = filesys_open (file_name);
@@ -495,7 +500,6 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 static bool
 setup_stack (void **esp, char *argument_buffer, int argcount) 
 {
-  bool DEBUG_ENABLED = true;
   uint8_t *kpage;
   bool success = false;
 
@@ -589,9 +593,6 @@ setup_stack (void **esp, char *argument_buffer, int argcount)
 
         *esp = int_esp_iter;
 
-        printf("DEBUG: int iter is: |%p|\n", int_esp_iter);  
-
-        printf("DEBUG: Stack setup finished successfully! ESP now set to |%p|\n", *esp);
       }
       else
         palloc_free_page (kpage);
