@@ -11,9 +11,10 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+#include "threads/malloc.h"
+#include "filesys/file.h"
 #ifdef USERPROG
 #include "userprog/process.h"
-#include "filesys/file.h"
 #endif
 
 /* Random value for struct thread's `magic' member.
