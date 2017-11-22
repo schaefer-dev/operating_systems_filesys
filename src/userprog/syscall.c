@@ -19,7 +19,7 @@ void validate_pointer(const void* pointer);
 void* read_argument_at_index(struct intr_frame *f, int arg_offset);
 void syscall_exit(const int exit_type);
 void syscall_halt(void);
-void syscall_exec(const char *cmd_line, struct intr_frame *f);
+tid_t syscall_exec(const char *cmd_line);
 int syscall_write(int fd, const void *buffer, unsigned size);
 bool syscall_create(const char* file, unsigned initial_size);
 bool syscall_remove(const char* file);
@@ -79,7 +79,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     case SYS_EXEC:
       {
         char *cmd_line = (char*) read_argument_at_index(f, 0);
-        syscall_exec(cmd_line, f);
+        f->eax = syscall_exec(cmd_line);
         break;
       }
 
@@ -199,7 +199,8 @@ read_argument_at_index(struct intr_frame *f, int arg_offset){
 
 void
 syscall_exit(const int exit_type){
-  // check for held locks
+  // TODO check for held locks
+  // TODO notify parent and save exit value?
   printf("%s: exit(%d)\n", thread_current()->name, exit_type);
   thread_exit();
 }
@@ -241,18 +242,19 @@ syscall_halt(){
   shutdown_power_off();
 }
 
-void
-syscall_exec(const char *cmd_line, struct intr_frame *f){
+tid_t
+syscall_exec(const char *cmd_line){
   // TODO make sure to not change program which is running during runtime (see project description)
   // TODO must return pid -1 (=TID_ERROR), if the program cannot load or run for any reason
   // TODO process_execute returns the thread id of the new process
   tid_t tid = process_execute(cmd_line); 
-  f->eax = tid;  // return to process (tid)
+  return tid;  // return to process (tid)
 }
 
 bool
 syscall_create(const char* file, unsigned initial_size){
   lock_acquire(&lock_filesystem);
+  printf("CREATE with file_name = |%s| and size %u\n", file, initial_size);
   bool success = filesys_create(file, initial_size);
   lock_release(&lock_filesystem);
   return success;
