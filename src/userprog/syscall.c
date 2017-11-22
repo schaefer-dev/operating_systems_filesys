@@ -19,7 +19,8 @@ void syscall_exit(const int exit_type);
 void syscall_halt(void);
 void syscall_exec(const char *cmd_line, struct intr_frame *f);
 int syscall_write(int fd, const void *buffer, unsigned size);
-bool syscall_create_file(char* file, unsigned initial_size);
+bool syscall_create(const char* file, unsigned initial_size);
+bool syscall_remove(const char* file);
 
 struct lock lock_filesystem;
 
@@ -85,6 +86,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 
     case SYS_CREATE:
       {
+        // TODO: check if length of file_name has to be checked //
         char* file_name= (char*) read_argument_at_index(f,0);
         unsigned initial_size = (unsigned) *((unsigned*)read_argument_at_index(f, sizeof(file_name));
         f->eax = syscall_create_file(file_name, initial_size);
@@ -92,7 +94,12 @@ syscall_handler (struct intr_frame *f UNUSED)
       }
 
     case SYS_REMOVE:
-      break;
+      {
+        char* file_name= (char*) read_argument_at_index(f,0);
+        unsigned initial_size = (unsigned) *((unsigned*)read_argument_at_index(f, sizeof(file_name));
+        f->eax = syscall_remove(file_name);
+        break;
+      }
 
     case SYS_OPEN:
       break;
@@ -243,9 +250,17 @@ syscall_exec(const char *cmd_line, struct intr_frame *f){
 }
 
 bool
-syscall_create_file(const char* file, unsigned initial_size){
+syscall_create(const char* file, unsigned initial_size){
   lock_acquire(&lock_filesystem);
   bool success = filesys_create(file, initial_size);
+  lock_release(&lock_filesystem);
+  return success;
+}
+
+bool
+syscall_remove(const char* file){
+  lock_acquire(&lock_filesystem);
+  bool success = filesys_remove(file);
   lock_release(&lock_filesystem);
   return success;
 }
