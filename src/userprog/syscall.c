@@ -89,11 +89,11 @@ syscall_handler (struct intr_frame *f UNUSED)
     case SYS_CREATE:
       {
         // TODO: check if length of file_name has to be checked //
-	printf("start system create\n");
+	//printf("start system create\n");
         char* file_name= *((char**) read_argument_at_index(f,0));
-        printf("file_name= |%s| \n", file_name);
+        //printf("file_name= |%s| \n", file_name);
         unsigned initial_size = *((unsigned*) read_argument_at_index(f,sizeof(char*)));
-        printf("file_name= |%s| and initial_size=|%u|\n", file_name, initial_size);
+        //printf("file_name= |%s| and initial_size=|%u|\n", file_name, initial_size);
         f->eax = syscall_create(file_name, initial_size);
         break;
       }
@@ -257,7 +257,7 @@ syscall_exec(const char *cmd_line){
 bool
 syscall_create(const char* file, unsigned initial_size){
   lock_acquire(&lock_filesystem);
-  printf("CREATE with file_name = |%s| and size %u\n", file, initial_size);
+  //printf("CREATE with file_name = |%s| and size %u\n", file, initial_size);
   bool success = filesys_create(file, initial_size);
   lock_release(&lock_filesystem);
   return success;
