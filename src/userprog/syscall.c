@@ -78,7 +78,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 
     case SYS_EXEC:
       {
-        char *cmd_line = (char*) read_argument_at_index(f, 0);
+        char *cmd_line = *((char**) read_argument_at_index(f, 0));
         f->eax = syscall_exec(cmd_line);
         break;
       }
@@ -89,9 +89,10 @@ syscall_handler (struct intr_frame *f UNUSED)
     case SYS_CREATE:
       {
         // TODO: check if length of file_name has to be checked //
-        char* file_name= (char*) read_argument_at_index(f,0);
+	printf("start system create\n");
+        char* file_name= *((char**) read_argument_at_index(f,0));
         printf("file_name= |%s| \n", file_name);
-        unsigned initial_size = *((unsigned*) read_argument_at_index(f,1));
+        unsigned initial_size = *((unsigned*) read_argument_at_index(f,sizeof(char*)));
         printf("file_name= |%s| and initial_size=|%u|\n", file_name, initial_size);
         f->eax = syscall_create(file_name, initial_size);
         break;
@@ -99,7 +100,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 
     case SYS_REMOVE:
       {
-        char* file_name= (char*) read_argument_at_index(f,0);
+        char* file_name= *((char**) read_argument_at_index(f,0));
         f->eax = syscall_remove(file_name);
         break;
       }
@@ -190,10 +191,10 @@ validate_pointer(const void* pointer){
 void *
 read_argument_at_index(struct intr_frame *f, int arg_offset){
 
-  int *esp = (int*) f->esp;
+  void *esp = (void*) f->esp;
   validate_pointer(esp);
 
-  int *argument = esp + 1 + arg_offset;
+  void *argument = esp + sizeof(int) + arg_offset;
   validate_pointer(argument);
 
   return argument;
