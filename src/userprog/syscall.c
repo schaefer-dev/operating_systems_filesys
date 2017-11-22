@@ -88,7 +88,7 @@ syscall_handler (struct intr_frame *f UNUSED)
       {
         // TODO: check if length of file_name has to be checked //
         char* file_name= (char*) read_argument_at_index(f,0);
-        unsigned initial_size = (unsigned) *((unsigned*)read_argument_at_index(f, sizeof(file_name));
+        unsigned initial_size = (unsigned) *((unsigned*)read_argument_at_index(f, strlen(file_name)+sizeof(char)));
         f->eax = syscall_create_file(file_name, initial_size);
         break;
       }
