@@ -13,6 +13,7 @@
 #include "threads/vaddr.h"
 #ifdef USERPROG
 #include "userprog/process.h"
+#include "filesys/file.h"
 #endif
 
 /* Random value for struct thread's `magic' member.
@@ -53,6 +54,14 @@ struct sleeping_thread
   struct sleeping_thread *next;
   struct sleeping_thread *prev;
 } sleeping_thread;
+
+/* Struct to save open files of a thread in a linked list */
+struct file_entry
+	{
+		struct file *file;
+		unsigned fd;
+		struct list_elem elem; 
+	};
 
 /* Statistics. */
 static long long idle_ticks;    /* # of timer ticks spent idle. */
@@ -104,6 +113,7 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
+  list_init (&file_list);
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
@@ -476,6 +486,10 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
+
+  /*initialize list for file system*/
+  list_init(&t->file_list);
+  t->current_fd = 2;
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);

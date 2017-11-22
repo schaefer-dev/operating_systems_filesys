@@ -86,7 +86,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     case SYS_CREATE:
       {
         char* file_name= (char*) read_argument_at_index(f,0);
-        unsigned initial_size = (unsigned) *((unsigned*)read_argument_at_index(f, size(char*));
+        unsigned initial_size = (unsigned) *((unsigned*)read_argument_at_index(f, sizeof(file_name));
         f->eax = syscall_create_file(file_name, initial_size);
         break;
       }
@@ -243,7 +243,7 @@ syscall_exec(const char *cmd_line, struct intr_frame *f){
 }
 
 bool
-syscall_create_file(char* file, unsigned initial_size){
+syscall_create_file(const char* file, unsigned initial_size){
   lock_acquire(&lock_filesystem);
   bool success = filesys_create(file, initial_size);
   lock_release(&lock_filesystem);
