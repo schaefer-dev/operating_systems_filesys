@@ -9,6 +9,8 @@
 #include "userprog/process.h"
 #include <kernel/console.h>
 #include "threads/synch.h"
+#include "filesys/filesys.h"
+#include "filesys/file.h"
 
 static void syscall_handler (struct intr_frame *);
 
