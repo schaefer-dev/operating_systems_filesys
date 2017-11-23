@@ -307,7 +307,7 @@ int syscall_open(const char *file_name){
   struct file *new_file = filesys_open(file_name);
   if (new_file == NULL){
     lock_release(&lock_filesystem);
-    syscall_exit(-1);
+    return -1;
   }
   struct thread *t = thread_current();
   int current_fd = t->current_fd;
