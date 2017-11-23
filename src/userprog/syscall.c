@@ -31,6 +31,7 @@ bool check_file_name(const char *file_name);
 int syscall_open(const char *file_name);
 int syscall_filesize(int fd);
 struct file* get_file(int fd);
+void syscall_seek(int fd, unsigned position);
 
 struct lock lock_filesystem;
 
@@ -154,7 +155,12 @@ syscall_handler (struct intr_frame *f UNUSED)
       }
 
     case SYS_SEEK:
-      break;
+      {
+        int fd = *((int*)read_argument_at_index(f,0)); 
+        unsigned position = *((unsigned*)read_argument_at_index(f,sizeof(int)));
+        syscall_seek(fd, position);
+        break;
+      }
 
     case SYS_TELL:
       break;
@@ -349,4 +355,14 @@ get_file(int fd){
       }
   }
   return NULL;
+}
+
+void syscall_seek(int fd, unsigned position){
+  struct file *file = get_file(fd);
+  if (file == NULL){
+    syscall_exit(-1);
+  }
+  lock_acquire(&lock_filesystem);
+  file_seek(file, position);
+  lock_release(&lock_filesystem);
 }
