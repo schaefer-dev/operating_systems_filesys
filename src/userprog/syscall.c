@@ -174,6 +174,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 
     case SYS_CLOSE:
       {
+        printf("enter sys_close syscall\n");
         int fd = *((int*)read_argument_at_index(f,0)); 
         syscall_close(fd);
         break;
@@ -391,9 +392,10 @@ unsigned syscall_tell(int fd){
 
 void syscall_close(int fd){
   lock_acquire(&lock_filesystem);
+  //TODO Debug
 	printf("enter syscall close");
 	struct list_elem *e = get_list_elem(fd);
-  if (list_elem == NULL){
+  if (e == NULL){
     syscall_exit(-1);
   }
 	struct file_entry *f = list_entry (e, struct file_entry, elem);
@@ -407,6 +409,8 @@ void syscall_close(int fd){
 
 struct list_elem*
 get_list_elem(int fd){
+  //TODO Debug
+  printf("enter get elem\n")
   struct thread *t = thread_current();
   struct list files= t->file_list;
   struct list_elem *e;
