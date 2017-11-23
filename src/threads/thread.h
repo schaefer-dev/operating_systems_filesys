@@ -109,6 +109,14 @@ struct thread
 
   };
 
+/* Struct to save open files of a thread in a linked list */
+struct file_entry
+  {
+    struct file *file;
+    unsigned fd;
+    struct list_elem elem; 
+  };
+
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
    Controlled by kernel command-line option "-o mlfqs". */

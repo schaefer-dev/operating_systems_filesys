@@ -312,8 +312,8 @@ int syscall_open(const char *file_name){
   int current_fd = t->current_fd;
   t->current_fd += 1;
   struct file_entry *current_entry;
-  current_entry->fd=current_fd;
-  current_entry->file= new_file;
+  current_entry->f = current_fd;
+  current_entry->file = new_file;
   list_push_back (&t->file_list, &current_entry->elem);
   lock_release(&lock_filesystem);
   return current_fd;
