@@ -384,7 +384,7 @@ unsigned syscall_tell(int fd){
     syscall_exit(-1);
   }
   lock_acquire(&lock_filesystem);
-  unsigned pos = file_tell(file, position);
+  unsigned pos = file_tell(file);
   lock_release(&lock_filesystem);
   return pos;
 }
