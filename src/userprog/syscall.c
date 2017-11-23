@@ -393,6 +393,9 @@ void syscall_close(int fd){
   lock_acquire(&lock_filesystem);
 	printf("enter syscall close");
 	struct list_elem *e = get_list_elem(fd);
+  if (list_elem == NULL){
+    syscall_exit(-1);
+  }
 	struct file_entry *f = list_entry (e, struct file_entry, elem);
   if (f->file == NULL){
     syscall_exit(-1);
