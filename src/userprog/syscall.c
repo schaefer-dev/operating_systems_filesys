@@ -24,9 +24,10 @@ void syscall_exit(const int exit_type);
 void syscall_halt(void);
 tid_t syscall_exec(const char *cmd_line);
 int syscall_write(int fd, const void *buffer, unsigned size);
-bool syscall_create(const char* file, unsigned initial_size);
-bool syscall_remove(const char* file);
-bool check_file_name(const char* file);
+bool syscall_create(const char *file_name, unsigned initial_size);
+bool syscall_remove(const char *file_name);
+bool check_file_name(const char *file_name);
+int syscall_open(const char *file_name);
 
 struct lock lock_filesystem;
 
@@ -58,8 +59,6 @@ syscall_handler (struct intr_frame *f UNUSED)
 {
   void *esp = (int*) f->esp;
 
-  //printf("DEBUG: Syscall ESP is |%p|\n", esp);
-
   validate_pointer(esp);
 
   // syscall type int is stored at adress esp
@@ -83,6 +82,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     case SYS_EXEC:
       {
         char *cmd_line = *((char**) read_argument_at_index(f, 0));
+        validate_pointer(cmd_line);
         f->eax = syscall_exec(cmd_line);
         break;
       }
@@ -92,16 +92,13 @@ syscall_handler (struct intr_frame *f UNUSED)
 
     case SYS_CREATE:
       {
-        // TODO: check if length of file_name has to be checked //
 	//printf("start system create\n");
-        char* file_name= *((char**) read_argument_at_index(f,0));
+        char *file_name= *((char**) read_argument_at_index(f,0));
 				validate_pointer(file_name);
 				if (!check_file_name(file_name)){
 					f->eax = false;
 				} else {
-        //printf("file_name= |%s| \n", file_name);
 		      unsigned initial_size = *((unsigned*) read_argument_at_index(f,sizeof(char*)));
-		      //printf("file_name= |%s| and initial_size=|%u|\n", file_name, initial_size);
 		      f->eax = syscall_create(file_name, initial_size);
 				}
         break;
@@ -109,7 +106,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 
     case SYS_REMOVE:
       {
-				char* file_name= *((char**) read_argument_at_index(f,0));
+				char *file_name= *((char**) read_argument_at_index(f,0));
 				validate_pointer(file_name);
         if (!check_file_name(file_name)){
           f->eax = false;
@@ -120,7 +117,16 @@ syscall_handler (struct intr_frame *f UNUSED)
       }
 
     case SYS_OPEN:
-      break;
+      {
+        char *file_name= *((char**) read_argument_at_index(f,0));
+        validate_pointer(file_name);
+        if (!check_file_name(file_name)){
+          f->eax = false;
+        } else {
+          f->eax = syscall_open(file_name);
+        }
+        break;
+      }
 
     case SYS_FILESIZE:
       {
@@ -270,27 +276,45 @@ syscall_exec(const char *cmd_line){
 }
 
 bool
-syscall_create(const char* file, unsigned initial_size){
+syscall_create(const char *file_name, unsigned initial_size){
   lock_acquire(&lock_filesystem);
   //printf("CREATE with file_name = |%s| and size %u\n", file, initial_size);
-  bool success = filesys_create(file, initial_size);
+  bool success = filesys_create(file_name, initial_size);
   lock_release(&lock_filesystem);
   return success;
 }
 
 bool
-syscall_remove(const char* file){
+syscall_remove(const char *file_name){
   lock_acquire(&lock_filesystem);
-  bool success = filesys_remove(file);
+  bool success = filesys_remove(file_name);
   lock_release(&lock_filesystem);
   return success;
 }
 
-bool check_file_name (const char* file_name){
+bool check_file_name (const char *file_name){
 	if (file_name == NULL){
 		syscall_exit(-1);
 	} else if (strlen(file_name)>max_file_name){
 		return false;
 	}
 	return true;
+}
+
+int syscall_open(const char *file_name){
+  lock_acquire(&lock_filesystem);
+  struct file *new_file =  filesys_open(file_name);
+  if (new_file == NULL){
+    lock_release(&lock_filesystem);
+    syscall_exit(-1);
+  }
+  struct thread *t = thread_current();
+  int current_fd = t->current_fd;
+  t->current_fd += 1;
+  struct file_entry *current_entry;
+  current_entry->fd=current_fd;
+  current_entry->file= new_file;
+  list_push_back (&t->file_list, &current_entry->elem);
+  lock_release(&lock_filesystem);
+  return current_fd;
 }

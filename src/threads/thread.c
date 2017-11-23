@@ -58,11 +58,11 @@ struct sleeping_thread
 
 /* Struct to save open files of a thread in a linked list */
 struct file_entry
-	{
-		struct file *file;
-		unsigned fd;
-		struct list_elem elem; 
-	};
+{
+	struct file *file;
+	unsigned fd;
+	struct list_elem elem; 
+};
 
 /* Statistics. */
 static long long idle_ticks;    /* # of timer ticks spent idle. */
