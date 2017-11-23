@@ -32,6 +32,9 @@ int syscall_open(const char *file_name);
 int syscall_filesize(int fd);
 struct file* get_file(int fd);
 void syscall_seek(int fd, unsigned position);
+unsigned syscall_tell(int fd);
+void syscall_close(int fd);
+struct list_elem* get_list_elem(int fd);
 
 struct lock lock_filesystem;
 
@@ -163,10 +166,18 @@ syscall_handler (struct intr_frame *f UNUSED)
       }
 
     case SYS_TELL:
-      break;
+      {
+        int fd = *((int*)read_argument_at_index(f,0)); 
+        f->eax = syscall_tell(fd);
+        break;
+      }
 
     case SYS_CLOSE:
-      break;
+      {
+        int fd = *((int*)read_argument_at_index(f,0)); 
+        syscall_close(fd);
+        break;
+      }
 
     case SYS_MMAP:
       // TODO project 3
@@ -365,4 +376,44 @@ void syscall_seek(int fd, unsigned position){
   lock_acquire(&lock_filesystem);
   file_seek(file, position);
   lock_release(&lock_filesystem);
+}
+
+unsigned syscall_tell(int fd){
+  struct file *file = get_file(fd);
+  if (file == NULL){
+    syscall_exit(-1);
+  }
+  lock_acquire(&lock_filesystem);
+  unsigned pos = file_tell(file, position);
+  lock_release(&lock_filesystem);
+  return pos;
+}
+
+void syscall_close(int fd){
+  lock_acquire(&lock_filesystem);
+  struct file *file = get_file(fd);
+  if (file == NULL){
+    syscall_exit(-1);
+  }
+  file_close(file);
+  struct thread *t = thread_current();
+  struct list_elem *elem = get_list_elem(fd);
+  list_remove (&t->file_list->elem);
+  lock_release(&lock_filesystem);
+}
+
+struct list_elem*
+get_list_elem(int fd){
+  struct thread *t = thread_current();
+  struct list files= t->file_list;
+  struct list_elem *e;
+
+  for (e = list_begin (&files); e != list_end (&files);
+       e = list_next (e)) {
+      struct file_entry *f = list_entry (e, struct file_entry, elem);
+      if (f->fd == fd){
+        return e;
+      }
+  }
+  return NULL;
 }
