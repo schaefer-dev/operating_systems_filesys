@@ -14,6 +14,8 @@
 
 static void syscall_handler (struct intr_frame *);
 
+static unsigned max_file_name = 14;
+
 void syscall_init (void);
 void validate_pointer(const void* pointer);
 void* read_argument_at_index(struct intr_frame *f, int arg_offset);
@@ -23,6 +25,7 @@ tid_t syscall_exec(const char *cmd_line);
 int syscall_write(int fd, const void *buffer, unsigned size);
 bool syscall_create(const char* file, unsigned initial_size);
 bool syscall_remove(const char* file);
+bool check_file_name(const char* file);
 
 struct lock lock_filesystem;
 
@@ -91,10 +94,14 @@ syscall_handler (struct intr_frame *f UNUSED)
         // TODO: check if length of file_name has to be checked //
 	//printf("start system create\n");
         char* file_name= *((char**) read_argument_at_index(f,0));
+				if (!check_file_name(file_name)){
+					f->eax = false;
+				} else {
         //printf("file_name= |%s| \n", file_name);
-        unsigned initial_size = *((unsigned*) read_argument_at_index(f,sizeof(char*)));
-        //printf("file_name= |%s| and initial_size=|%u|\n", file_name, initial_size);
-        f->eax = syscall_create(file_name, initial_size);
+		      unsigned initial_size = *((unsigned*) read_argument_at_index(f,sizeof(char*)));
+		      //printf("file_name= |%s| and initial_size=|%u|\n", file_name, initial_size);
+		      f->eax = syscall_create(file_name, initial_size);
+				}
         break;
       }
 
@@ -269,4 +276,13 @@ syscall_remove(const char* file){
   bool success = filesys_remove(file);
   lock_release(&lock_filesystem);
   return success;
+}
+
+bool check_file_name (const char* file_name){
+	if (file_name == NULL){
+		syscall_exit(-1);
+	} else if (strlen(file_name)>max_file_name){
+		return false;
+	}
+	return true;
 }
