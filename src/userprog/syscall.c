@@ -341,7 +341,7 @@ get_file(int fd){
   struct list files= t->file_list;
   struct list_elem *e;
 
-  for (e = list_begin (&foo_list); e != list_end (&foo_list);
+  for (e = list_begin (&files); e != list_end (&files);
        e = list_next (e)) {
       struct file_entry *f = list_entry (e, struct file_entry, elem);
       if (f->fd == fd){
