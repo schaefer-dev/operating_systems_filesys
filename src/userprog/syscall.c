@@ -9,6 +9,7 @@
 #include "userprog/process.h"
 #include <kernel/console.h>
 #include "threads/synch.h"
+#include "threads/malloc.h"
 #include "filesys/filesys.h"
 #include "filesys/file.h"
 #include "userprog/pagedir.h"
@@ -303,7 +304,7 @@ bool check_file_name (const char *file_name){
 
 int syscall_open(const char *file_name){
   lock_acquire(&lock_filesystem);
-  struct file *new_file =  filesys_open(file_name);
+  struct file *new_file = filesys_open(file_name);
   if (new_file == NULL){
     lock_release(&lock_filesystem);
     syscall_exit(-1);
@@ -311,8 +312,8 @@ int syscall_open(const char *file_name){
   struct thread *t = thread_current();
   int current_fd = t->current_fd;
   t->current_fd += 1;
-  struct file_entry *current_entry;
-  current_entry->f = current_fd;
+  struct file_entry *current_entry = malloc(sizeof(struct file_entry));
+  current_entry->fd = current_fd;
   current_entry->file = new_file;
   list_push_back (&t->file_list, &current_entry->elem);
   lock_release(&lock_filesystem);
