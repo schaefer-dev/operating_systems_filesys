@@ -11,6 +11,7 @@
 #include "threads/synch.h"
 #include "filesys/filesys.h"
 #include "filesys/file.h"
+#include "userprog/pagedir.h"
 
 static void syscall_handler (struct intr_frame *);
 
@@ -107,8 +108,12 @@ syscall_handler (struct intr_frame *f UNUSED)
 
     case SYS_REMOVE:
       {
-        char* file_name= *((char**) read_argument_at_index(f,0));
-        f->eax = syscall_remove(file_name);
+        if (!check_file_name(file_name)){
+          f->eax = false;
+        } else {
+          char* file_name= *((char**) read_argument_at_index(f,0));
+          f->eax = syscall_remove(file_name);
+        }
         break;
       }
 
@@ -187,7 +192,8 @@ syscall_handler (struct intr_frame *f UNUSED)
 void
 validate_pointer(const void* pointer){
   // Validation of pointer
-  if (pointer == NULL || !is_user_vaddr(pointer)){
+  uint32_t *pagedir = thread_current->pagedir;
+  if (pointer == NULL || !is_user_vaddr(pointer) || pagedir_get_page(pagedir, pointer)==NULL){
     // Exit if pointer is not valid
     syscall_exit(-1);
   }
