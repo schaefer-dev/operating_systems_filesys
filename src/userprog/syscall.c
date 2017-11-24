@@ -265,7 +265,6 @@ syscall_exit(const int exit_type){
 
 int
 syscall_write(int fd, const void *buffer, unsigned size){
-  struct file_desc *fd_struct;
   int returnvalue = 0;
 
   //printf("DEBUG: write started with fd |%i|!\n", fd);
@@ -299,7 +298,6 @@ syscall_write(int fd, const void *buffer, unsigned size){
 
 int
 syscall_read(int fd, void *buffer, unsigned size){
-  struct file_desc *fd_struct;
   int returnvalue = 0;
 
   validate_pointer(buffer);
