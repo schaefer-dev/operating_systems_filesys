@@ -349,6 +349,12 @@ syscall_exec(const char *cmd_line){
   // TODO make sure to not change program which is running during runtime (see project description)
   // TODO must return pid -1 (=TID_ERROR), if the program cannot load or run for any reason
   // TODO process_execute returns the thread id of the new process
+  if (cmd_line == NULL){
+    return -1;
+  }
+  if (strlen(cmd_line==0)){
+    return -1;
+  }
   tid_t tid = process_execute(cmd_line); 
   return tid;  // return to process (tid)
 }

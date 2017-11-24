@@ -125,8 +125,9 @@ struct file_entry
 struct child_process
   {
     int exit_status;
-    pid_t process_number;
+    pid_t pid;
     bool terminated;
+    bool successful_loaded;
     struct list_elem elem;
   };
 
