@@ -15,6 +15,7 @@
 #include "filesys/file.h"
 #ifdef USERPROG
 #include "userprog/process.h"
+#include "userprog/syscall.h"
 #endif
 
 /* Random value for struct thread's `magic' member.
@@ -489,7 +490,7 @@ init_thread (struct thread *t, const char *name, int priority)
   list_init(&t->child_list);
 
   // set parent of new thread
-  t->parent_process = thread_current()->tid_t;
+  t->parent_process = thread_tid();
 
 
   old_level = intr_disable ();
@@ -673,10 +674,10 @@ allocate_tid (void)
 /* function to add create child_process and adds it to list */
 static void add_child(int pid){
   struct child_process * new_child = malloc(sizeof(struct child_process));
-  new_child->pid = pd;
+  new_child->pid = pid;
   new_child->terminated = false;
   new_child->successful_loaded = false;
-  list_push_back(&thread_current->child_list,&new_child->elem);
+  list_push_back(&thread_current()->child_list,&new_child->elem);
 }
 
 /* Offset of `stack' member within `struct thread'.

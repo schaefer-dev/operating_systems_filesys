@@ -17,6 +17,7 @@ enum thread_status
 /* Thread identifier type.
    You can redefine this to whatever type you like. */
 typedef int tid_t;
+typedef int pid_t;
 #define TID_ERROR ((tid_t) -1)          /* Error value for tid_t. */
 
 /* Thread priorities. */
@@ -97,7 +98,7 @@ struct thread
     struct list file_list;
 
     /* List of all child processes of this thread */
-    struct child_list;
+    struct list child_list;
 
     pid_t parent_process;
 
