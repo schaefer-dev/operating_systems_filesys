@@ -113,7 +113,7 @@ struct thread
 struct file_entry
   {
     struct file *file;
-    unsigned fd;
+    int fd;
     struct list_elem elem; 
   };
 
