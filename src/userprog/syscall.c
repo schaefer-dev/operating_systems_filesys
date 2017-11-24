@@ -185,7 +185,6 @@ syscall_handler (struct intr_frame *f UNUSED)
 
     case SYS_CLOSE:
       {
-        printf("enter sys_close syscall\n");
         int fd = *((int*)read_argument_at_index(f,0)); 
         syscall_close(fd);
         break;
@@ -411,6 +410,7 @@ int syscall_filesize(int fd){
   return size;
 }
 
+
 /* searchs the file in current thread */
 struct file*
 get_file(int fd){
@@ -424,10 +424,30 @@ get_file(int fd){
       if (f->fd == fd){
         return f->file;
       }
-      iterator = list_next(e);
+      iterator = list_next(iterator);
   }
   return NULL;
 }
+
+
+/* searchs the file in current thread and returns list_elem */
+struct list_elem*
+get_list_elem(int fd){
+  struct thread *t = thread_current();
+  struct list open_files= t->file_list;
+
+  struct list_elem *iterator = list_begin (&open_files);
+
+  while (iterator != list_end(&open_files)){
+      struct file_entry *f = list_entry (iterator, struct file_entry, elem);
+      if (f->fd == fd){
+        return iterator;
+      }
+      iterator = list_next(iterator);
+  }
+  return NULL;
+}
+
 
 void syscall_seek(int fd, unsigned position){
   struct file *file = get_file(fd);
@@ -452,40 +472,19 @@ unsigned syscall_tell(int fd){
 
 void syscall_close(int fd){
   lock_acquire(&lock_filesystem);
-  printf("DEBUG: entering syscall close\n");
   struct list_elem *e = get_list_elem(fd);
+
   if (e == NULL){
     syscall_exit(-1);
   }
   struct file_entry *f = list_entry (e, struct file_entry, elem);
+
   if (f->file == NULL){
     syscall_exit(-1);
   }
 
   file_close(f->file);
-  list_remove (&f->elem);
+  list_remove (e);
   lock_release(&lock_filesystem);
 }
 
-struct list_elem*
-get_list_elem(int fd){
-  printf("DEBUG: entering get elem\n");
-  struct thread *t = thread_current();
-  struct list files= t->file_list;
-  struct list_elem *e;
-
-  printf("DEBUG: List_size: |%i|\n", list_size(&files));
-  for (e = list_begin (&files); e != list_end (&files);
-       e = list_next (e)) {
-    printf("DEBUG: entered_loop \n");
-  }
-
-  for (e = list_begin (&files); e != list_end (&files);
-       e = list_next (e)) {
-      struct file_entry *f = list_entry (e, struct file_entry, elem);
-      if (f->fd == fd){
-        return e;
-      }
-  }
-  return NULL;
-}
