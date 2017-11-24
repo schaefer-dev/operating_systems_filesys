@@ -392,16 +392,16 @@ unsigned syscall_tell(int fd){
 
 void syscall_close(int fd){
   lock_acquire(&lock_filesystem);
-  //TODO Debug
-	printf("enter syscall close");
-	struct list_elem *e = get_list_elem(fd);
+  printf("DEBUG: entering syscall close\n");
+  struct list_elem *e = get_list_elem(fd);
   if (e == NULL){
     syscall_exit(-1);
   }
-	struct file_entry *f = list_entry (e, struct file_entry, elem);
+  struct file_entry *f = list_entry (e, struct file_entry, elem);
   if (f->file == NULL){
     syscall_exit(-1);
   }
+
   file_close(f->file);
   list_remove (&f->elem);
   lock_release(&lock_filesystem);
@@ -409,17 +409,15 @@ void syscall_close(int fd){
 
 struct list_elem*
 get_list_elem(int fd){
-  //TODO Debug
-  printf("enter get elem\n")
+  printf("DEBUG: entering get elem\n");
   struct thread *t = thread_current();
   struct list files= t->file_list;
   struct list_elem *e;
 
-	//TODO:DEBUG
-  printf("List_size: |%i[", list_size(&files));
+  printf("DEBUG: List_size: |%i|\n", list_size(&files));
   for (e = list_begin (&files); e != list_end (&files);
        e = list_next (e)) {
-    printf("entered_loop \n");
+    printf("DEBUG: entered_loop \n");
   }
 
   for (e = list_begin (&files); e != list_end (&files);
