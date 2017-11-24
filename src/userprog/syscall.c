@@ -415,15 +415,17 @@ int syscall_filesize(int fd){
 struct file*
 get_file(int fd){
   struct thread *t = thread_current();
-  struct list open_files = t->file_list;
+  struct list *open_files = &(t->file_list);
 
-  struct list_elem *iterator = list_begin (&open_files);
+  if (list_empty(open_files))
+      return NULL;
 
-  while (iterator != list_end (&open_files)){
+  struct list_elem *iterator = list_begin (open_files);
+
+  while (iterator != list_end (open_files)){
       struct file_entry *f = list_entry (iterator, struct file_entry, elem);
-      if (f->fd == fd){
+      if (f->fd == fd)
         return f->file;
-      }
       iterator = list_next(iterator);
   }
   return NULL;
@@ -434,15 +436,18 @@ get_file(int fd){
 struct list_elem*
 get_list_elem(int fd){
   struct thread *t = thread_current();
-  struct list open_files= t->file_list;
+  struct list *open_files= &(t->file_list);
+  
+  if (list_empty(open_files))
+      return NULL;
 
-  struct list_elem *iterator = list_begin (&open_files);
+  struct list_elem *iterator = list_begin (open_files);
 
-  while (iterator != list_end(&open_files)){
+
+  while (iterator != list_end(open_files)){
       struct file_entry *f = list_entry (iterator, struct file_entry, elem);
-      if (f->fd == fd){
+      if (f->fd == fd)
         return iterator;
-      }
       iterator = list_next(iterator);
   }
   return NULL;
