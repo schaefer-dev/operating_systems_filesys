@@ -479,9 +479,12 @@ init_thread (struct thread *t, const char *name, int priority)
   t->priority = priority;
   t->magic = THREAD_MAGIC;
 
-  /*initialize list for file system*/
+  /* initialize list for file system*/
   list_init(&t->file_list);
   t->current_fd = 2;
+
+  /* initialize list for child processes */
+  list_init(&t->child_list);
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);

@@ -96,6 +96,11 @@ struct thread
     /* List of all open files of this thread. */
     struct list file_list;
 
+    /* List of all child processes of this thread */
+    struct child_list;
+
+    pid_t parent_process;
+
     /* Counter to give every file in file list a unique fd */
     int current_fd; 
 
@@ -115,6 +120,14 @@ struct file_entry
     struct file *file;
     int fd;
     struct list_elem elem; 
+  };
+
+struct child_process
+  {
+    int exit_status;
+    pid_t process_number;
+    bool terminated;
+    struct list_elem elem;
   };
 
 /* If false (default), use round-robin scheduler.
