@@ -7,7 +7,8 @@
 #include "threads/thread.h"
 #include "devices/shutdown.h"
 #include "userprog/process.h"
-#include <kernel/console.h>
+#include "kernel/console.h"
+#include "devices/input.h"
 #include "threads/synch.h"
 #include "threads/malloc.h"
 #include "filesys/filesys.h"
@@ -25,6 +26,7 @@ void syscall_exit(const int exit_type);
 void syscall_halt(void);
 tid_t syscall_exec(const char *cmd_line);
 int syscall_write(int fd, const void *buffer, unsigned size);
+int syscall_read(int fd, void *buffer, unsigned size);
 bool syscall_create(const char *file_name, unsigned initial_size);
 bool syscall_remove(const char *file_name);
 bool check_file_name(const char *file_name);
@@ -143,6 +145,15 @@ syscall_handler (struct intr_frame *f UNUSED)
       }
 
     case SYS_READ:
+      {
+        lock_acquire(&lock_filesystem);
+        int fd = *((int*)read_argument_at_index(f,0)); 
+        void *buffer = *((void**)read_argument_at_index(f,sizeof(int))); 
+        unsigned size = *((unsigned*)read_argument_at_index(f,2*sizeof(int))); 
+        int returnvalue = syscall_read(fd, buffer, size);
+        f->eax = returnvalue;
+        lock_release(&lock_filesystem);
+      }
       break;
 
     case SYS_WRITE:
@@ -243,6 +254,7 @@ read_argument_at_index(struct intr_frame *f, int arg_offset){
   return argument;
 }
 
+
 void
 syscall_exit(const int exit_type){
   // TODO check for held locks
@@ -250,6 +262,7 @@ syscall_exit(const int exit_type){
   printf("%s: exit(%d)\n", thread_current()->name, exit_type);
   thread_exit();
 }
+
 
 int
 syscall_write(int fd, const void *buffer, unsigned size){
@@ -266,21 +279,67 @@ syscall_write(int fd, const void *buffer, unsigned size){
     putbuf(buffer,size);
     returnvalue = size;
   }
+  else if (fd == STDIN_FILENO){
+    returnvalue = -1;
+  }
   else{
-    // TODO read fd_struct and get file handler
+    struct file *file_ = get_file(fd);
     
     // check if file NULL
-    if (fd_struct != NULL){
-      returnvalue = -1;
+    if (file_ == NULL){
+      returnvalue = 0;
+    }else{
+      returnvalue = file_write(file_, buffer, size);
     }
-
-    // TODO I/O Operations, make sure its locked here
-
-    returnvalue = size;
   }
 
   return returnvalue;
 
+}
+
+
+int
+syscall_read(int fd, void *buffer, unsigned size){
+  struct file_desc *fd_struct;
+  int returnvalue = 0;
+
+  validate_pointer(buffer);
+
+  // TODO: check if all memory inside buffer valid!!
+
+  if (fd == STDOUT_FILENO){
+    returnvalue = -1;
+  }
+  else if (fd == STDIN_FILENO){
+    unsigned size_left = size;
+    uint8_t *buffer_copy = (uint8_t *)buffer;
+    uint8_t input_char = 0;
+      
+    while (size_left > 1){
+      input_char = input_getc();
+      if (input_char == 0)
+        break;
+      else{
+        size_left -= 1;
+        *buffer_copy = input_char;
+        buffer_copy += 1;
+      }
+    }
+
+    returnvalue = size - size_left;
+  }
+  else{
+    struct file *file_ = get_file(fd);
+    
+    // check if file NULL
+    if (file_ == NULL){
+      returnvalue = 0;
+    }else{
+      returnvalue = file_read(file_, buffer, size);
+    }
+  }
+
+  return returnvalue;
 }
 
 void
