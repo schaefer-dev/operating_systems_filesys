@@ -415,15 +415,16 @@ int syscall_filesize(int fd){
 struct file*
 get_file(int fd){
   struct thread *t = thread_current();
-  struct list files= t->file_list;
-  struct list_elem *e;
+  struct list open_files = t->file_list;
 
-  for (e = list_begin (&files); e != list_end (&files);
-       e = list_next (e)) {
-      struct file_entry *f = list_entry (e, struct file_entry, elem);
+  struct list_elem *iterator = list_begin (&open_files);
+
+  while (iterator != list_end (&open_files)){
+      struct file_entry *f = list_entry (iterator, struct file_entry, elem);
       if (f->fd == fd){
         return f->file;
       }
+      iterator = list_next(e);
   }
   return NULL;
 }
