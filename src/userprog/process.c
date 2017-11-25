@@ -18,6 +18,7 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "devices/timer.h"
+#include "threads/synch.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp, char* argument_buffer, int argcount);
@@ -125,6 +126,7 @@ start_process (void *file_name_)
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (file_name, &if_.eip, &if_.esp, current_argument_space, argcount);
 
+  lock_acquire(&thread_current()->child_lock);
   // set load of child_process
   struct child_process *child_process = &(thread_current()->child_process);
   if (success){
@@ -132,6 +134,8 @@ start_process (void *file_name_)
   } else {
     child_process->successfully_loaded = LOAD_FAILURE;
   }
+  condition_signal(&child_process->loaded, &thread_current()->child_lock);
+  lock_acquire(&thread_current()->child_lock);
 
 
   /* If load failed, quit. */
