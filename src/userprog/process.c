@@ -33,6 +33,7 @@ tid_t
 process_execute (const char *file_name) 
 {
   char *fn_copy;
+  char *file_name_copy;
   tid_t tid;
 
   // TODO file_name has to be smaller than PGSIZE
@@ -44,18 +45,26 @@ process_execute (const char *file_name)
   if (fn_copy == NULL)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
+  file_name_copy = palloc_get_page (0);
+  if (file_name_copy == NULL)
+    return TID_ERROR;
+  strlcpy (file_name_copy, file_name, PGSIZE);
 
   // thread_create is where the magic happens
   // put tokens into fn_copy and create new aux to pass stuff
   // pass aux which contains adresses to tokens
 
   char *ptr;
-  file_name = strtok_r((char*) file_name, " ", &ptr);
+  char *command_name;
+  command_name = strtok_r(file_name_copy, " ", &ptr);
   
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
-  if (tid == TID_ERROR)
+  tid = thread_create (command_name, PRI_DEFAULT, start_process, fn_copy);
+  // TODO think about freeing stuff
+  if (tid == TID_ERROR){
     palloc_free_page (fn_copy); 
+    palloc_free_page (file_name_copy); 
+  }
   return tid;
 }
 
@@ -192,7 +201,7 @@ process_wait (pid_t child_tid)
     /* wait as long as child_tid is still running
        if is only possible here, because the signal can only occur once
        and the thread is guaranteed to be terminated after signal */
-    if (get_thread(child_tid) != NULL)
+    while ((child->terminated) == false)
       cond_wait(&child->terminated_cond, &child->child_process_lock); 
 
     if ((child->terminated) == false)

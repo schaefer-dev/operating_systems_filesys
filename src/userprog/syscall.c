@@ -66,62 +66,61 @@ syscall_init (void)
 static void
 syscall_handler (struct intr_frame *f UNUSED) 
 {
-  void *esp = (int*) f->esp;
+void *esp = (int*) f->esp;
 
-  validate_pointer(esp);
+validate_pointer(esp);
 
-  // syscall type int is stored at adress esp
-  int32_t syscall_type = *((int*)esp);
+// syscall type int is stored at adress esp
+int32_t syscall_type = *((int*)esp);
 
-  switch (syscall_type)
+switch (syscall_type)
+  {
+  case SYS_HALT:
     {
-    case SYS_HALT:
-      {
-        syscall_halt();
-        break;
-      }
+      syscall_halt();
+      break;
+    }
 
-    case SYS_EXIT:
-      {
-        int exit_type = *((int*) read_argument_at_index(f, 0));
-        syscall_exit(exit_type);
-        break;
-      }
+  case SYS_EXIT:
+    {
+      int exit_type = *((int*) read_argument_at_index(f, 0));
+      syscall_exit(exit_type);
+      break;
+    }
 
-    case SYS_EXEC:
-      {
-        char *cmd_line = *((char**) read_argument_at_index(f, 0));
-        validate_pointer(cmd_line);
-        f->eax = syscall_exec(cmd_line);
-        break;
-      }
+  case SYS_EXEC:
+    {
+      char *cmd_line = *((char**) read_argument_at_index(f, 0));
+      validate_pointer(cmd_line);
+      f->eax = syscall_exec(cmd_line);
+      break;
+    }
 
-    case SYS_WAIT:
-      {
-        printf("syscall_wait called!\n");
-        pid_t pid = *((pid_t*) read_argument_at_index(f, 0));
-        f->eax = process_wait(pid);
-        break;
-      }
+  case SYS_WAIT:
+    {
+      pid_t pid = *((pid_t*) read_argument_at_index(f, 0));
+      f->eax = process_wait(pid);
+      break;
+    }
 
-    case SYS_CREATE:
-      {
-	//printf("start system create\n");
-        char *file_name= *((char**) read_argument_at_index(f,0));
-				validate_pointer(file_name);
-				if (!check_file_name(file_name)){
-					f->eax = false;
-				} else {
-		      unsigned initial_size = *((unsigned*) read_argument_at_index(f,sizeof(char*)));
-		      f->eax = syscall_create(file_name, initial_size);
-				}
-        break;
+  case SYS_CREATE:
+    {
+      //printf("start system create\n");
+      char *file_name= *((char**) read_argument_at_index(f,0));
+      validate_pointer(file_name);
+      if (!check_file_name(file_name)){
+        f->eax = false;
+      } else {
+        unsigned initial_size = *((unsigned*) read_argument_at_index(f,sizeof(char*)));
+        f->eax = syscall_create(file_name, initial_size);
       }
+      break;
+    }
 
     case SYS_REMOVE:
       {
-				char *file_name= *((char**) read_argument_at_index(f,0));
-				validate_pointer(file_name);
+        char *file_name= *((char**) read_argument_at_index(f,0));
+        validate_pointer(file_name);
         if (!check_file_name(file_name)){
           f->eax = false;
         } else {
@@ -262,7 +261,6 @@ read_argument_at_index(struct intr_frame *f, int arg_offset){
 
 void
 syscall_exit(const int exit_type){
-  printf("syscall_exit called");
   // TODO check for held locks
   struct thread* terminating_thread = thread_current();
   struct child_process* terminating_child = terminating_thread->child_process;
@@ -365,12 +363,15 @@ syscall_halt(){
 tid_t
 syscall_exec(const char *cmd_line){
   // TODO make sure to not change program which is running during runtime (see project description) -> set DENY_WRITE
+
   if (cmd_line == NULL){
     return -1;
   }
+
   if (strlen(cmd_line) == 0){
     return -1;
   }
+
   pid_t pid = process_execute(cmd_line);
   struct child_process *current_child = get_child(pid);
   if (current_child == NULL){
