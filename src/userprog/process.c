@@ -156,10 +156,38 @@ start_process (void *file_name_)
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
 int
-process_wait (tid_t child_tid UNUSED) 
+process_wait (tid_t child_tid) 
 {
-  // TODO implement, just to see ouptut
-  timer_msleep(100);
+  if (child_tid == TID_ERROR)
+    return TID_ERROR;
+
+  int returnvalue = TID_ERROR;
+  struct thread *current_thread = thread_current();
+  struct list *child_list = &(current_thread->child_list);
+  struct list_elem *iterator = list_head(child_list);
+  struct child_process *child = NULL;
+
+  // search for matching child
+  while (iterator != list_tail(child_list)){
+      child = list_entry(iterator, struct child_process, elem);
+      if (child->pid == child_tid){
+        break;
+      }
+      iterator = list_next(iterator);
+  }
+
+  // case for matching child found
+  if (child != NULL){
+    // TODO Lock child list of current thread
+
+    // TODO wait for thread child_tid
+
+    returnvalue = child->exit_status;
+
+    // TODO unlock child list of current thread
+  }
+
+  return returnvalue;
 }
 
 /* Free the current process's resources. */
