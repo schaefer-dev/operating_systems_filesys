@@ -126,8 +126,12 @@ start_process (void *file_name_)
   success = load (file_name, &if_.eip, &if_.esp, current_argument_space, argcount);
 
   // set load of child_process
-  struct thread *current_thread = thread_current();
-  current_thread->child_process->successfully_loaded = succes;
+  struct child_process *child_process = &(thread_current()->child_process);
+  if (success){
+    child_process->successfully_loaded = LOAD_SUCCESS;
+  } else {
+    child_process->successfully_loaded = LOAD_FAILURE;
+  }
 
 
   /* If load failed, quit. */

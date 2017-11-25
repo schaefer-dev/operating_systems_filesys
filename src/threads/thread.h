@@ -4,6 +4,7 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+#include "userprog/process.h"
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -17,7 +18,7 @@ enum thread_status
 /* Thread identifier type.
    You can redefine this to whatever type you like. */
 typedef int tid_t;
-typedef int pid_t;
+
 #define TID_ERROR ((tid_t) -1)          /* Error value for tid_t. */
 
 /* Thread priorities. */
@@ -102,12 +103,15 @@ struct thread
 
     pid_t parent_process;
 
+    /* lock to protect operations in child_list */
+    struct lock child_lock;
+
     /* save the reference of its own child_process struct to
       change the load status after load is done */
     struct child_process *child_process;
 
     /* Counter to give every file in file list a unique fd */
-    int current_fd; 
+    int current_fd;
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
@@ -132,8 +136,9 @@ struct child_process
     int exit_status;
     pid_t pid;
     bool terminated;
-    bool successfully_loaded;
+    int successfully_loaded;
     struct list_elem elem;
+    struct condition loaded;
   };
 
 /* If false (default), use round-robin scheduler.

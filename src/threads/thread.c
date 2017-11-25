@@ -491,6 +491,9 @@ init_thread (struct thread *t, const char *name, int priority)
   /* initialize list for child processes */
   list_init(&t->child_list);
 
+  /*initialize lock for child_list */
+  lock_init(&t->child_lock);
+
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
   intr_set_level (old_level);
@@ -674,7 +677,8 @@ struct child_proccess* add_child(int pid){
   struct child_process * new_child = malloc(sizeof(struct child_process));
   new_child->pid = pid;
   new_child->terminated = false;
-  new_child->successfully_loaded = false;
+  new_child->successfully_loaded = NOT_LOADED;
+  condition_init(&new_child->loaded);
   list_push_back(&thread_current()->child_list,&new_child->elem);
   return new_child;
 }

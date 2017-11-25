@@ -352,11 +352,24 @@ syscall_exec(const char *cmd_line){
   if (cmd_line == NULL){
     return -1;
   }
-  if (strlen(cmd_line==0)){
+  if (strlen(cmd_line) == 0){
     return -1;
   }
-  tid_t tid = process_execute(cmd_line); 
-  return tid;  // return to process (tid)
+  pid_t pid = process_execute(cmd_line);
+  struct child_procces *current_child = get_child(pid);
+  if (current_child == NULL){
+    return -1;
+  }
+  lock_acquire(&thread_current()->child_lock);
+  while(current_child->successfully_loaded == NOT_LOADED){
+    condition_wait(&current_child->loaded, &thread_current()->child_lock);
+  }
+  if (current_child->successfully_loaded == LOAD_FAILURE){
+    lock_release(&thread_current()->child_lock);
+    return -1;
+  }
+  lock_release(&thread_current()->child_lock);
+  return pid;  // return to process pid
 }
 
 bool
