@@ -367,10 +367,14 @@ syscall_exec(const char *cmd_line){
   if (cmd_line == NULL){
     return -1;
   }
-
   if (strlen(cmd_line) == 0){
     return -1;
   }
+
+  // Validate end of passed string
+  int arg_length = strlen(cmd_line);
+  char *cmd_line_end = cmd_line + arg_length;
+  validate_pointer(cmd_line_end);
 
   pid_t pid = process_execute(cmd_line);
   struct child_process *current_child = get_child(pid);

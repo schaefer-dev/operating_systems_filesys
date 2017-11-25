@@ -688,6 +688,9 @@ get_child(pid_t pid){
   struct thread *current_thread = thread_current();
   lock_acquire(&current_thread->child_list_lock);
   struct list *child_list = &(current_thread->child_list);
+  if (list_empty (child_list))
+    return NULL;
+
   struct list_elem *iterator = list_head(child_list);
   struct child_process *child = NULL;
 
