@@ -102,6 +102,10 @@ struct thread
 
     pid_t parent_process;
 
+    /* save the reference of its own child_process struct to
+      change the load status after load is done */
+    struct child_process *child_process;
+
     /* Counter to give every file in file list a unique fd */
     int current_fd; 
 
@@ -128,7 +132,7 @@ struct child_process
     int exit_status;
     pid_t pid;
     bool terminated;
-    bool successful_loaded;
+    bool successfully_loaded;
     struct list_elem elem;
   };
 

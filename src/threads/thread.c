@@ -200,7 +200,7 @@ thread_create (const char *name, int priority,
   tid = t->tid = allocate_tid ();
 	// set parent of new thread
   t->parent_process = thread_tid();
-  add_child(tid);
+  t->child_process = add_child(tid);
 
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame (t, sizeof *kf);
@@ -670,12 +670,13 @@ allocate_tid (void)
 }
 
 /* function to add create child_process and adds it to list */
-void add_child(int pid){
+struct child_proccess* add_child(int pid){
   struct child_process * new_child = malloc(sizeof(struct child_process));
   new_child->pid = pid;
   new_child->terminated = false;
-  new_child->successful_loaded = false;
+  new_child->successfully_loaded = false;
   list_push_back(&thread_current()->child_list,&new_child->elem);
+  return new_child;
 }
 
 /* Offset of `stack' member within `struct thread'.

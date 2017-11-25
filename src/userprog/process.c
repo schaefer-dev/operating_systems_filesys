@@ -125,6 +125,10 @@ start_process (void *file_name_)
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (file_name, &if_.eip, &if_.esp, current_argument_space, argcount);
 
+  // set load of child_process
+  struct thread *current_thread = thread_current();
+  current_thread->child_process->successfully_loaded = succes;
+
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
@@ -162,19 +166,7 @@ process_wait (tid_t child_tid)
     return TID_ERROR;
 
   int returnvalue = TID_ERROR;
-  struct thread *current_thread = thread_current();
-  struct list *child_list = &(current_thread->child_list);
-  struct list_elem *iterator = list_head(child_list);
-  struct child_process *child = NULL;
-
-  // search for matching child
-  while (iterator != list_tail(child_list)){
-      child = list_entry(iterator, struct child_process, elem);
-      if (child->pid == child_tid){
-        break;
-      }
-      iterator = list_next(iterator);
-  }
+  struct child_process *child = get_child(child_tid);
 
   // case for matching child found
   if (child != NULL){
@@ -647,3 +639,24 @@ install_page (void *upage, void *kpage, bool writable)
   return (pagedir_get_page (t->pagedir, upage) == NULL
           && pagedir_set_page (t->pagedir, upage, kpage, writable));
 }
+
+struct child_process
+get_child(pid_t pid){
+  struct thread *current_thread = thread_current();
+  struct list *child_list = &(current_thread->child_list);
+  struct list_elem *iterator = list_head(child_list);
+  struct child_process *child = NULL;
+
+  // search for matching child
+  while (iterator != list_tail(child_list)){
+      child = list_entry(iterator, struct child_process, elem);
+      if (child->pid == child_tid){
+        break;
+      }
+      iterator = list_next(iterator);
+  }
+  return child;
+}
+
+
+
