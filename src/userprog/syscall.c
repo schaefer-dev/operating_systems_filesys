@@ -97,7 +97,12 @@ syscall_handler (struct intr_frame *f UNUSED)
       }
 
     case SYS_WAIT:
-      break;
+      {
+        printf("syscall_wait called!\n");
+        pid_t pid = *((pid_t*) read_argument_at_index(f, 0));
+        f->eax = process_wait(pid);
+        break;
+      }
 
     case SYS_CREATE:
       {
@@ -219,11 +224,12 @@ syscall_handler (struct intr_frame *f UNUSED)
       break;
 
     default:
-      printf("this should not happen! DEFAULT SYSCALL CASE");
-      break;
+      {
+        syscall_exit(-1);
+        break;
+      }
     }
   
-
   // TODO remove this later
   //printf ("DEBUG: Forced thread_exit after FIRST syscall!\n");
   //thread_exit ();
@@ -256,8 +262,20 @@ read_argument_at_index(struct intr_frame *f, int arg_offset){
 
 void
 syscall_exit(const int exit_type){
+  printf("syscall_exit called");
   // TODO check for held locks
-  // TODO notify parent and save exit value?
+  struct thread* terminating_thread = thread_current();
+  struct child_process* terminating_child = terminating_thread->child_process;
+
+  if (terminating_child != NULL){
+    lock_acquire(&terminating_child->child_process_lock);
+    terminating_child->terminated = true;
+    terminating_child->exit_status = exit_type;
+    cond_signal(&terminating_child->terminated_cond, &terminating_child->child_process_lock);
+    // TODO free child structure contained in this process!
+    lock_release(&terminating_child->child_process_lock);
+  }
+
   printf("%s: exit(%d)\n", thread_current()->name, exit_type);
   thread_exit();
 }
@@ -346,9 +364,7 @@ syscall_halt(){
 
 tid_t
 syscall_exec(const char *cmd_line){
-  // TODO make sure to not change program which is running during runtime (see project description)
-  // TODO must return pid -1 (=TID_ERROR), if the program cannot load or run for any reason
-  // TODO process_execute returns the thread id of the new process
+  // TODO make sure to not change program which is running during runtime (see project description) -> set DENY_WRITE
   if (cmd_line == NULL){
     return -1;
   }
@@ -356,19 +372,23 @@ syscall_exec(const char *cmd_line){
     return -1;
   }
   pid_t pid = process_execute(cmd_line);
-  struct child_procces *current_child = get_child(pid);
+  struct child_process *current_child = get_child(pid);
   if (current_child == NULL){
     return -1;
   }
-  lock_acquire(&thread_current()->child_lock);
+
+  lock_acquire(&current_child->child_process_lock);
+
   while(current_child->successfully_loaded == NOT_LOADED){
-    condition_wait(&current_child->loaded, &thread_current()->child_lock);
+    cond_wait(&current_child->loaded, &current_child->child_process_lock);
   }
+
   if (current_child->successfully_loaded == LOAD_FAILURE){
-    lock_release(&thread_current()->child_lock);
+    lock_release(&current_child->child_process_lock);
     return -1;
   }
-  lock_release(&thread_current()->child_lock);
+
+  lock_release(&current_child->child_process_lock);
   return pid;  // return to process pid
 }
 

@@ -85,7 +85,7 @@ static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
-void add_child(int pid);
+struct child_process* add_child(pid_t child_pid, pid_t parent_pid);
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -198,9 +198,10 @@ thread_create (const char *name, int priority,
   /* Initialize thread. */
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
-	// set parent of new thread
-  t->parent_process = thread_tid();
-  t->child_process = add_child(tid);
+
+  /* call add_child to create this process as a 
+     child process and set parent to parent thread */
+  t->child_process = add_child(tid, thread_tid());
 
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame (t, sizeof *kf);
@@ -492,7 +493,7 @@ init_thread (struct thread *t, const char *name, int priority)
   list_init(&t->child_list);
 
   /*initialize lock for child_list */
-  lock_init(&t->child_lock);
+  lock_init(&t->child_list_lock);
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
@@ -672,17 +673,43 @@ allocate_tid (void)
   return tid;
 }
 
+struct thread* get_thread(pid_t thread_tid){
+  struct list_elem *e;
+  struct thread *iterator_thread;
+
+  // TODO maybe lock this?
+  e = list_head(&all_list);
+  while (e != list_tail(&all_list)){
+    iterator_thread = list_entry(e, struct thread, allelem);
+    if (iterator_thread->tid == thread_tid)
+      return iterator_thread;
+
+  }
+}
+
 /* function to add create child_process and adds it to list */
-struct child_proccess* add_child(int pid){
-  struct child_process * new_child = malloc(sizeof(struct child_process));
-  new_child->pid = pid;
+struct child_process* add_child(pid_t child_pid, pid_t parent_pid){
+
+  struct child_process *new_child = malloc(sizeof(struct child_process));
+  new_child->pid = child_pid;
   new_child->terminated = false;
+  new_child->waited_for = false;
+  new_child->parent = parent_pid;
   new_child->successfully_loaded = NOT_LOADED;
-  condition_init(&new_child->loaded);
-  list_push_back(&thread_current()->child_list,&new_child->elem);
+  lock_init(&new_child->child_process_lock);
+  cond_init(&new_child->loaded);
+  cond_init(&new_child->terminated_cond);
+  struct thread *current_thread = thread_current();
+
+  // inserting into child_list of a thread has to be synchronized
+  lock_acquire(&current_thread->child_list_lock);
+  list_push_back(&current_thread->child_list,&new_child->elem);
+  lock_release(&current_thread->child_list_lock);
+
   return new_child;
 }
 
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
+

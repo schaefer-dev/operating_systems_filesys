@@ -68,8 +68,6 @@ start_process (void *file_name_)
   struct intr_frame if_;
   bool success;
 
-  // TODO move lexing to setup_stack and pass setup_stack *file_name_ to make this possible!
-  
   // TODO: Introduce end of page to check if still inside?
   char *argument_page = palloc_get_page (PAL_ZERO | PAL_USER);
 
@@ -124,18 +122,23 @@ start_process (void *file_name_)
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
+
   success = load (file_name, &if_.eip, &if_.esp, current_argument_space, argcount);
 
-  lock_acquire(&thread_current()->child_lock);
-  // set load of child_process
-  struct child_process *child_process = &(thread_current()->child_process);
+  struct thread *child_thread = thread_current();
+  struct child_process *child_process = child_thread->child_process;
+
+  lock_acquire(&child_process->child_process_lock);
+
+  // set load value of child_process after load is finished
   if (success){
     child_process->successfully_loaded = LOAD_SUCCESS;
   } else {
     child_process->successfully_loaded = LOAD_FAILURE;
   }
-  condition_signal(&child_process->loaded, &thread_current()->child_lock);
-  lock_acquire(&thread_current()->child_lock);
+  cond_signal(&child_process->loaded, &child_process->child_process_lock);
+
+  lock_release(&child_process->child_process_lock);
 
 
   /* If load failed, quit. */
@@ -168,7 +171,7 @@ start_process (void *file_name_)
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
 int
-process_wait (tid_t child_tid) 
+process_wait (pid_t child_tid) 
 {
   if (child_tid == TID_ERROR)
     return TID_ERROR;
@@ -176,15 +179,36 @@ process_wait (tid_t child_tid)
   int returnvalue = TID_ERROR;
   struct child_process *child = get_child(child_tid);
 
-  // case for matching child found
   if (child != NULL){
-    // TODO Lock child list of current thread
+    // case for matching child found
+    lock_acquire(&child->child_process_lock);
+    
+    // check if this child_tid has already been waited for
+    if (child->waited_for)
+      return -1;
+    else
+      child->waited_for = true;
 
-    // TODO wait for thread child_tid
+    /* wait as long as child_tid is still running
+       if is only possible here, because the signal can only occur once
+       and the thread is guaranteed to be terminated after signal */
+    if (get_thread(child_tid) != NULL)
+      cond_wait(&child->terminated_cond, &child->child_process_lock); 
+
+    if ((child->terminated) == false)
+      // Process has been terminated by kernel
+      return -1;
+    else{
+      // Process has terminated regularly
+      returnvalue = child->exit_status;
+    }
 
     returnvalue = child->exit_status;
 
-    // TODO unlock child list of current thread
+    lock_release(&child->child_process_lock);
+  } else {
+    // no matching child found
+    return -1;
   }
 
   return returnvalue;
@@ -197,6 +221,8 @@ process_exit (void)
   struct thread *cur = thread_current ();
   uint32_t *pd;
 
+  // TODO free child structure under this process
+  
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   pd = cur->pagedir;
@@ -648,9 +674,10 @@ install_page (void *upage, void *kpage, bool writable)
           && pagedir_set_page (t->pagedir, upage, kpage, writable));
 }
 
-struct child_process
+struct child_process*
 get_child(pid_t pid){
   struct thread *current_thread = thread_current();
+  lock_acquire(&current_thread->child_list_lock);
   struct list *child_list = &(current_thread->child_list);
   struct list_elem *iterator = list_head(child_list);
   struct child_process *child = NULL;
@@ -658,13 +685,11 @@ get_child(pid_t pid){
   // search for matching child
   while (iterator != list_tail(child_list)){
       child = list_entry(iterator, struct child_process, elem);
-      if (child->pid == child_tid){
+      if (child->pid == pid){
         break;
       }
       iterator = list_next(iterator);
   }
+  lock_release(&current_thread->child_list_lock);
   return child;
 }
-
-
-

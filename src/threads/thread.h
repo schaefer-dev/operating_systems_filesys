@@ -5,6 +5,7 @@
 #include <list.h>
 #include <stdint.h>
 #include "userprog/process.h"
+#include "threads/synch.h"
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -95,16 +96,17 @@ struct thread
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 
+
+    // TODO move all USERPROG stuff down into ifdef, also move initialization etc
+    // TODO maybe lock this list of files
     /* List of all open files of this thread. */
     struct list file_list;
 
     /* List of all child processes of this thread */
     struct list child_list;
 
-    pid_t parent_process;
-
     /* lock to protect operations in child_list */
-    struct lock child_lock;
+    struct lock child_list_lock;
 
     /* save the reference of its own child_process struct to
       change the load status after load is done */
@@ -131,15 +133,6 @@ struct file_entry
     struct list_elem elem; 
   };
 
-struct child_process
-  {
-    int exit_status;
-    pid_t pid;
-    bool terminated;
-    int successfully_loaded;
-    struct list_elem elem;
-    struct condition loaded;
-  };
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
@@ -180,5 +173,9 @@ int thread_get_load_avg (void);
 void thread_sleep (int64_t);
 void wakeup_sleeping_threads(int64_t);
 void sleeping_thread_insert(struct thread *, int64_t);
+
+
+// returns thread with tid
+struct thread* get_thread(tid_t);
 
 #endif /* threads/thread.h */
