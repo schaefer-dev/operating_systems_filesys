@@ -85,7 +85,7 @@ static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
-static void add_child(int pid);
+void add_child(int pid);
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -198,6 +198,8 @@ thread_create (const char *name, int priority,
   /* Initialize thread. */
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
+	// set parent of new thread
+  t->parent_process = thread_tid();
   add_child(tid);
 
   /* Stack frame for kernel_thread(). */
@@ -489,10 +491,6 @@ init_thread (struct thread *t, const char *name, int priority)
   /* initialize list for child processes */
   list_init(&t->child_list);
 
-  // set parent of new thread
-  t->parent_process = thread_tid();
-
-
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
   intr_set_level (old_level);
@@ -672,7 +670,7 @@ allocate_tid (void)
 }
 
 /* function to add create child_process and adds it to list */
-static void add_child(int pid){
+void add_child(int pid){
   struct child_process * new_child = malloc(sizeof(struct child_process));
   new_child->pid = pid;
   new_child->terminated = false;
