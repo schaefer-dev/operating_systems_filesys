@@ -309,14 +309,18 @@ thread_exit (void)
 
   intr_disable ();
 
+  struct thread *current_thread = thread_current();
+  if (current_thread->executable != NULL)
+    file_close(current_thread->executable);
+
   /* free child_process ressources of this process when possible */
   thread_terminate_child_setup();
 
   /* Remove thread from all threads list, set our status to dying,
      and schedule another process.  That process will destroy us
      when it calls thread_schedule_tail(). */
-  list_remove (&thread_current()->allelem);
-  thread_current ()->status = THREAD_DYING;
+  list_remove (&current_thread->allelem);
+  current_thread->status = THREAD_DYING;
   schedule ();
   NOT_REACHED ();
 }
@@ -492,6 +496,9 @@ init_thread (struct thread *t, const char *name, int priority)
   /* initialize list for file system*/
   list_init(&t->file_list);
   t->current_fd = 2;
+
+  /* initialize executable of this thread */
+  t->executable = NULL;
 
   /* initialize list for child processes */
   list_init(&t->child_list);

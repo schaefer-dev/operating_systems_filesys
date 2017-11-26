@@ -361,9 +361,12 @@ load (const char *file_name, void (**eip) (void), void **esp, char* argument_buf
   file = filesys_open (file_name);
   if (file == NULL) 
     {
+      file_close (file);
       printf ("load: %s: open failed\n", file_name);
       goto done; 
     }
+  t->executable = file;
+  file_deny_write(file);
 
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
@@ -448,7 +451,6 @@ load (const char *file_name, void (**eip) (void), void **esp, char* argument_buf
 
  done:
   /* We arrive here whether the load is successful or not. */
-  file_close (file);
   return success;
 }
 
