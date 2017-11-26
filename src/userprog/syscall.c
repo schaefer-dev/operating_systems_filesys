@@ -245,7 +245,7 @@ void
 validate_pointer(const void* pointer){
   // Validation of pointer
   uint32_t *pagedir = thread_current()->pagedir;
-  if (pointer == NULL || !is_user_vaddr(pointer) || pagedir_get_page(pagedir, pointer)==NULL){
+  if (pointer == NULL || !is_user_vaddr(pointer) || pagedir_get_page(pagedir, pointer)==NULL || pointer< 0x08048000){
     // Exit if pointer is not valid
     syscall_exit(-1);
   }
@@ -289,7 +289,7 @@ syscall_exit(const int exit_type){
   }
 
   /* close all files in this thread and free ressources */
-  //clear_files();
+  clear_files();
 
   printf("%s: exit(%d)\n", thread_current()->name, exit_type);
   thread_exit();
@@ -393,7 +393,7 @@ syscall_exec(const char *cmd_line){
 
   // Validate end of passed string
   int arg_length = strlen(cmd_line);
-  char *cmd_line_end = cmd_line + arg_length;
+  char *cmd_line_end = cmd_line + arg_length + 1;
   validate_pointer(cmd_line_end);
 
   // TODO maybe lock filesystem here because load uses IO
@@ -497,7 +497,6 @@ get_file(int fd){
 /* clears all open files in current thread */
 void
 clear_files(){
-  lock_acquire(&lock_filesystem);
   struct thread *t = thread_current();
   struct list *open_files = &(t->file_list);
 
@@ -511,12 +510,11 @@ clear_files(){
       if (f->file != NULL){
         file_close(f->file);
       }
-      free(f);
       struct list_elem *removeElem = iterator; 
       iterator = list_next(iterator);
       list_remove (removeElem);
+      free(f);
   }
-  lock_acquire(&lock_filesystem);
 }
 
 
@@ -577,8 +575,8 @@ void syscall_close(int fd){
   }
 
   file_close(f->file);
-  //free(f);
   list_remove (element);
+  free(f);
   lock_release(&lock_filesystem);
 }
 
