@@ -105,6 +105,9 @@ struct thread
     /* List of all child processes of this thread */
     struct list child_list;
 
+    /* the executable of this thread */
+    struct file *executable;
+
     /* lock to protect operations in child_list */
     struct lock child_list_lock;
 
