@@ -33,6 +33,7 @@ bool check_file_name(const char *file_name);
 int syscall_open(const char *file_name);
 int syscall_filesize(int fd);
 struct file* get_file(int fd);
+void clear_files();
 void syscall_seek(int fd, unsigned position);
 unsigned syscall_tell(int fd);
 void syscall_close(int fd);
@@ -273,12 +274,21 @@ syscall_exit(const int exit_type){
 
   if (terminating_child != NULL){
     lock_acquire(&terminating_child->child_process_lock);
-    terminating_child->terminated = true;
-    terminating_child->exit_status = exit_type;
-    cond_signal(&terminating_child->terminated_cond, &terminating_child->child_process_lock);
-    // TODO free child structure contained in this process!
-    lock_release(&terminating_child->child_process_lock);
+    if (terminating_child->parent != NULL){
+      /* parent is still running -> has to store information */
+      terminating_child->terminated = true;
+      terminating_child->exit_status = exit_type;
+      cond_signal(&terminating_child->terminated_cond, &terminating_child->child_process_lock);
+      lock_release(&terminating_child->child_process_lock);
+    } else {
+      /* parent is already terminated -> free ressources */
+      lock_release(&terminating_child->child_process_lock);
+      free(terminating_child);
+    }
   }
+
+  /* close all files in this thread and free ressources */
+  clear_files();
 
   printf("%s: exit(%d)\n", thread_current()->name, exit_type);
   thread_exit();
@@ -483,6 +493,31 @@ get_file(int fd){
   return NULL;
 }
 
+/* clears all open files in current thread */
+void
+clear_files(){
+  lock_acquire(&lock_filesystem);
+  struct thread *t = thread_current();
+  struct list *open_files = &(t->file_list);
+
+  if (list_empty(open_files))
+      return;
+
+  struct list_elem *iterator = list_begin (open_files);
+
+  while (iterator != list_end (open_files)){
+      struct file_entry *f = list_entry (iterator, struct file_entry, elem);
+      if (f->file != NULL){
+        file_close(f->file);
+      }
+      free(f);
+      struct list_elem *removeElem = iterator; 
+      iterator = list_next(iterator);
+      list_remove (removeElem);
+  }
+  lock_acquire(&lock_filesystem);
+}
+
 
 /* searchs the file in current thread and returns list_elem */
 struct list_elem*
@@ -541,6 +576,7 @@ void syscall_close(int fd){
   }
 
   file_close(f->file);
+  free(f);
   list_remove (e);
   lock_release(&lock_filesystem);
 }

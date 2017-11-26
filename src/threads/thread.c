@@ -307,10 +307,22 @@ thread_exit (void)
   process_exit ();
 #endif
 
+  intr_disable ();
+
+  /* free child_process ressources of this process when possible */
+  struct child_process *child_process = thread_current()->child_process;
+  lock_acquire(&child_process->child_process_lock);
+  if (child_process -> parent == NULL){
+    lock_release(&child_process->child_process_lock);
+    free(thread_current()->child_process);
+  }else{
+    lock_release(&child_process->child_process_lock);
+  }
+  thread_terminate_child_setup();
+
   /* Remove thread from all threads list, set our status to dying,
      and schedule another process.  That process will destroy us
      when it calls thread_schedule_tail(). */
-  intr_disable ();
   list_remove (&thread_current()->allelem);
   thread_current ()->status = THREAD_DYING;
   schedule ();
@@ -685,6 +697,37 @@ struct thread* get_thread(pid_t thread_tid){
       return iterator_thread;
 
   }
+}
+
+
+/* function to remove all child_process correctly when parent terminates */
+void thread_terminate_child_setup(){
+  struct thread *current_thread = thread_current();
+  struct list *child_list = &(current_thread->child_list);
+  lock_acquire(&current_thread->child_list_lock);
+
+  if (list_empty(child_list))
+    return;
+
+  struct list_elem *iterator = list_begin (child_list);
+
+  while (iterator != list_end (child_list)){
+      struct child_process *f = list_entry (iterator, struct child_process, elem);
+      lock_acquire(&f->child_process_lock);
+
+      struct list_elem *removeElem = iterator; 
+      iterator = list_next(iterator);
+      list_remove (removeElem);
+
+      if (f->terminated){
+        lock_release(&f->child_process_lock);
+        free(f);
+      }else{
+        f->parent=NULL;
+        lock_release(&f->child_process_lock);
+      }
+  }
+  lock_release(&current_thread->child_list_lock);
 }
 
 /* function to add create child_process and adds it to list */
