@@ -66,56 +66,59 @@ syscall_init (void)
 static void
 syscall_handler (struct intr_frame *f UNUSED) 
 {
-void *esp = (int*) f->esp;
+  //printf("DEBUG: printS\n");
+  if(f == NULL)
+    syscall_exit(-1);
+  void *esp = (int*) f->esp;
 
-validate_pointer(esp);
+  validate_pointer(esp);
 
-// syscall type int is stored at adress esp
-int32_t syscall_type = *((int*)esp);
+  // syscall type int is stored at adress esp
+  int32_t syscall_type = *((int*)esp);
+  //printf("DEBUG: print2 syscall_type: |%i|\n", syscall_type);
 
-switch (syscall_type)
-  {
-  case SYS_HALT:
+  switch (syscall_type)
     {
-      syscall_halt();
-      break;
-    }
-
-  case SYS_EXIT:
-    {
-      int exit_type = *((int*) read_argument_at_index(f, 0));
-      syscall_exit(exit_type);
-      break;
-    }
-
-  case SYS_EXEC:
-    {
-      char *cmd_line = *((char**) read_argument_at_index(f, 0));
-      validate_pointer(cmd_line);
-      f->eax = syscall_exec(cmd_line);
-      break;
-    }
-
-  case SYS_WAIT:
-    {
-      pid_t pid = *((pid_t*) read_argument_at_index(f, 0));
-      f->eax = process_wait(pid);
-      break;
-    }
-
-  case SYS_CREATE:
-    {
-      //printf("start system create\n");
-      char *file_name= *((char**) read_argument_at_index(f,0));
-      validate_pointer(file_name);
-      if (!check_file_name(file_name)){
-        f->eax = false;
-      } else {
-        unsigned initial_size = *((unsigned*) read_argument_at_index(f,sizeof(char*)));
-        f->eax = syscall_create(file_name, initial_size);
+    case SYS_HALT:
+      {
+        syscall_halt();
+        break;
       }
-      break;
-    }
+
+    case SYS_EXIT:
+      {
+        int exit_type = *((int*) read_argument_at_index(f, 0));
+        syscall_exit(exit_type);
+        break;
+      }
+
+    case SYS_EXEC:
+      {
+        char *cmd_line = *((char**) read_argument_at_index(f, 0));
+        validate_pointer(cmd_line);
+        f->eax = syscall_exec(cmd_line);
+        break;
+      }
+
+    case SYS_WAIT:
+      {
+        pid_t pid = *((pid_t*) read_argument_at_index(f, 0));
+        f->eax = process_wait(pid);
+        break;
+      }
+
+    case SYS_CREATE:
+      {
+        char *file_name= *((char**) read_argument_at_index(f,0));
+        validate_pointer(file_name);
+        if (!check_file_name(file_name)){
+          f->eax = false;
+        } else {
+          unsigned initial_size = *((unsigned*) read_argument_at_index(f,sizeof(char*)));
+          f->eax = syscall_create(file_name, initial_size);
+        }
+        break;
+      }
 
     case SYS_REMOVE:
       {
@@ -143,6 +146,7 @@ switch (syscall_type)
 
     case SYS_FILESIZE:
       {
+        //printf("DEBUG: printFS\n");
         int fd = *((int*)read_argument_at_index(f,0)); 
         f->eax = syscall_filesize(fd);
         break;
@@ -150,11 +154,14 @@ switch (syscall_type)
 
     case SYS_READ:
       {
+        //printf("DEBUG: printA\n");
         lock_acquire(&lock_filesystem);
         int fd = *((int*)read_argument_at_index(f,0)); 
         void *buffer = *((void**)read_argument_at_index(f,sizeof(int))); 
         unsigned size = *((unsigned*)read_argument_at_index(f,2*sizeof(int))); 
+        //printf("DEBUG: printB\n");
         int returnvalue = syscall_read(fd, buffer, size);
+        //printf("DEBUG: printZ\n");
         f->eax = returnvalue;
         lock_release(&lock_filesystem);
       }
@@ -162,11 +169,14 @@ switch (syscall_type)
 
     case SYS_WRITE:
       {
+        //printf("DEBUG: printWRITE\n");
         lock_acquire(&lock_filesystem);
         int fd = *((int*)read_argument_at_index(f,0)); 
         void *buffer = *((void**)read_argument_at_index(f,sizeof(int))); 
         unsigned size = *((unsigned*)read_argument_at_index(f,2*sizeof(int))); 
+        //printf("DEBUG: printWRITE-Start\n");
         int returnvalue = syscall_write(fd, buffer, size);
+        //printf("DEBUG: printWRITE-Finish\n");
         f->eax = returnvalue;
         lock_release(&lock_filesystem);
         break;
@@ -228,10 +238,6 @@ switch (syscall_type)
         break;
       }
     }
-  
-  // TODO remove this later
-  //printf ("DEBUG: Forced thread_exit after FIRST syscall!\n");
-  //thread_exit ();
 }
 
 void
@@ -283,13 +289,14 @@ int
 syscall_write(int fd, const void *buffer, unsigned size){
   int returnvalue = 0;
 
-  //printf("DEBUG: write started with fd |%i|!\n", fd);
-
+  /* check if the entire buffer is valid */
+  uintptr_t buffer_end = ((uintptr_t)buffer) + size - 1;
   validate_pointer(buffer);
+  validate_pointer(buffer_end);
 
   // use temporary buffer to make sure we don't overflow?
   if (fd == STDOUT_FILENO){
-    //printf("DEBUG: putbuff called with size |%i| and pointer |%p| with content |%s|!\n", size, buffer, buffer);
+    unsigned sizeleft = size;
     putbuf(buffer,size);
     returnvalue = size;
   }
@@ -316,9 +323,10 @@ int
 syscall_read(int fd, void *buffer, unsigned size){
   int returnvalue = 0;
 
+  /* check if the entire buffer is valid */
+  uintptr_t buffer_end = ((uintptr_t)buffer) + size - 1;
   validate_pointer(buffer);
-
-  // TODO: check if all memory inside buffer valid!!
+  validate_pointer(buffer_end);
 
   if (fd == STDOUT_FILENO){
     returnvalue = -1;
@@ -376,7 +384,9 @@ syscall_exec(const char *cmd_line){
   char *cmd_line_end = cmd_line + arg_length;
   validate_pointer(cmd_line_end);
 
+  // TODO maybe lock filesystem here because load uses IO
   pid_t pid = process_execute(cmd_line);
+  
   struct child_process *current_child = get_child(pid);
   if (current_child == NULL){
     return -1;
@@ -400,7 +410,6 @@ syscall_exec(const char *cmd_line){
 bool
 syscall_create(const char *file_name, unsigned initial_size){
   lock_acquire(&lock_filesystem);
-  //printf("CREATE with file_name = |%s| and size %u\n", file, initial_size);
   bool success = filesys_create(file_name, initial_size);
   lock_release(&lock_filesystem);
   return success;
