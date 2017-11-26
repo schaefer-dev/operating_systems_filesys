@@ -193,8 +193,10 @@ process_wait (pid_t child_tid)
     lock_acquire(&child->child_process_lock);
     
     // check if this child_tid has already been waited for
-    if (child->waited_for)
+    if (child->waited_for){
+      lock_release(&child->child_process_lock);
       return -1;
+    }
     else
       child->waited_for = true;
 
@@ -204,10 +206,11 @@ process_wait (pid_t child_tid)
     while ((child->terminated) == false)
       cond_wait(&child->terminated_cond, &child->child_process_lock); 
 
-    if ((child->terminated) == false)
+    if ((child->terminated) == false){
       // Process has been terminated by kernel
+      lock_release(&child->child_process_lock);
       return -1;
-    else{
+    } else{
       // Process has terminated regularly
       returnvalue = child->exit_status;
     }
@@ -219,7 +222,6 @@ process_wait (pid_t child_tid)
     // no matching child found
     return -1;
   }
-
   return returnvalue;
 }
 
