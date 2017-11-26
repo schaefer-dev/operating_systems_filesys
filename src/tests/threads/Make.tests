@@ -18,5 +18,5 @@ tests/threads_SRC += tests/threads/narrow-bridge.c
 MLFQS_OUTPUTS =
 
 $(MLFQS_OUTPUTS): KERNELFLAGS += -mlfqs
-$(MLFQS_OUTPUTS): TIMEOUT = 480
+$(MLFQS_OUTPUTS): TIMEOUT = 6
 
