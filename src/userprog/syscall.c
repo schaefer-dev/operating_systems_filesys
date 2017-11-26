@@ -313,9 +313,7 @@ syscall_write(int fd, const void *buffer, unsigned size){
       returnvalue = file_write(file_, buffer, size);
     }
   }
-
   return returnvalue;
-
 }
 
 
@@ -337,7 +335,10 @@ syscall_read(int fd, void *buffer, unsigned size){
     uint8_t input_char = 0;
       
     while (size_left > 1){
+      validate_pointer(buffer_copy);
       input_char = input_getc();
+      if (input_char == NULL)
+        syscall_exit(-1);
       if (input_char == 0)
         break;
       else{
