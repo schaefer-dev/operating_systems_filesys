@@ -313,7 +313,8 @@ thread_exit (void)
   if (current_thread->executable != NULL)
     file_close(current_thread->executable);
 
-  /* free child_process ressources of this process when possible */
+  /* free child_process ressources of this process when possible 
+     and notify all childs that parent has terminated */
   thread_terminate_child_setup();
 
   /* Remove thread from all threads list, set our status to dying,
