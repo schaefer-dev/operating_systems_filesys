@@ -310,14 +310,6 @@ thread_exit (void)
   intr_disable ();
 
   /* free child_process ressources of this process when possible */
-  struct child_process *child_process = thread_current()->child_process;
-  lock_acquire(&child_process->child_process_lock);
-  if (child_process -> parent == NULL){
-    lock_release(&child_process->child_process_lock);
-    free(thread_current()->child_process);
-  }else{
-    lock_release(&child_process->child_process_lock);
-  }
   thread_terminate_child_setup();
 
   /* Remove thread from all threads list, set our status to dying,

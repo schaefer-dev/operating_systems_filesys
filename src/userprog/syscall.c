@@ -284,11 +284,12 @@ syscall_exit(const int exit_type){
       /* parent is already terminated -> free ressources */
       lock_release(&terminating_child->child_process_lock);
       free(terminating_child);
+      terminating_child = NULL;
     }
   }
 
   /* close all files in this thread and free ressources */
-  clear_files();
+  //clear_files();
 
   printf("%s: exit(%d)\n", thread_current()->name, exit_type);
   thread_exit();
@@ -564,20 +565,20 @@ unsigned syscall_tell(int fd){
 
 void syscall_close(int fd){
   lock_acquire(&lock_filesystem);
-  struct list_elem *e = get_list_elem(fd);
+  struct list_elem *element = get_list_elem(fd);
 
-  if (e == NULL){
+  if (element == NULL){
     syscall_exit(-1);
   }
-  struct file_entry *f = list_entry (e, struct file_entry, elem);
+  struct file_entry *f = list_entry (element, struct file_entry, elem);
 
   if (f->file == NULL){
     syscall_exit(-1);
   }
 
   file_close(f->file);
-  free(f);
-  list_remove (e);
+  //free(f);
+  list_remove (element);
   lock_release(&lock_filesystem);
 }
 
