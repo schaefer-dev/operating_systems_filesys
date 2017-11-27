@@ -60,6 +60,7 @@ process_execute (const char *file_name)
   return tid;
 }
 
+
 /* A thread function that loads a user process and starts it
    running. */
 static void
@@ -535,12 +536,13 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 
 
 /* returns true if the passed esp is outside the held page */
-bool faulty_esp(intptr_t esp, intptr_t min_addr){
+bool faulty_esp(uintptr_t esp, uintptr_t min_addr){
   if (esp < min_addr)
    return true;
   return false;
 
 }
+
 
 /* Create a minimal stack by mapping a zeroed page at the top of
    user virtual memory. */
@@ -565,7 +567,7 @@ setup_stack (void **esp, char *argument_buffer, int argcount)
         for (i = 0; i < argcount; i++){
           int argument_size = strlen(argument_buffer);
           esp_iter -= argument_size + 1;
-          if (faulty_esp(esp_iter, PHYS_BASE - PGSIZE))
+          if (faulty_esp((uintptr_t) esp_iter, (uintptr_t) (PHYS_BASE - PGSIZE)))
             return -1;
           strlcpy(esp_iter, argument_buffer, argument_size + 1);
           argument_adress_array[i] = esp_iter;
@@ -573,40 +575,42 @@ setup_stack (void **esp, char *argument_buffer, int argcount)
         } 
 
         esp_iter -= ((uintptr_t) esp_iter) % 4;
-        if (faulty_esp(esp_iter, PHYS_BASE - PGSIZE))
+        if (faulty_esp((uintptr_t) esp_iter, (uintptr_t) (PHYS_BASE - PGSIZE)))
           return -1;
 
         char **int_esp_iter = (char**) esp_iter;
 
         /* terminating char pointer */
         int_esp_iter -= 1;
-        if (faulty_esp(esp_iter, PHYS_BASE - PGSIZE))
+        if (faulty_esp((uintptr_t) esp_iter, (uintptr_t) (PHYS_BASE - PGSIZE)))
           return -1;
         *int_esp_iter = 0;
 
         /* writing argument references to stack */
         for (i = 0; i < argcount; i++){
           int_esp_iter -= 1;
-          if (faulty_esp(esp_iter, PHYS_BASE - PGSIZE))
+          if (faulty_esp((uintptr_t) esp_iter, (uintptr_t) (PHYS_BASE - PGSIZE)))
             return -1;
           *int_esp_iter = argument_adress_array[i];
         }
 
         /* write argv reference to stack */
         int_esp_iter -= 1;
-        if (faulty_esp(esp_iter, PHYS_BASE - PGSIZE))
+        if (faulty_esp((uintptr_t) esp_iter, (uintptr_t) (PHYS_BASE - PGSIZE)))
           return -1;
-        *int_esp_iter = int_esp_iter + 1;
+
+        // TODO check types!
+        *int_esp_iter = (char*) (int_esp_iter + 1);
 
         /* write argc to stack */
         int_esp_iter -= 1;
-        if (faulty_esp(esp_iter, PHYS_BASE - PGSIZE))
+        if (faulty_esp((uintptr_t) esp_iter, (uintptr_t) (PHYS_BASE - PGSIZE)))
           return -1;
-        *int_esp_iter = argcount;
+        *int_esp_iter = (char*) argcount;
 
         /* write return adress to stack */
         int_esp_iter -= 1;
-        if (faulty_esp(esp_iter, PHYS_BASE - PGSIZE))
+        if (faulty_esp((uintptr_t) esp_iter, (uintptr_t) (PHYS_BASE - PGSIZE)))
           return -1;
         *int_esp_iter = 0;
 

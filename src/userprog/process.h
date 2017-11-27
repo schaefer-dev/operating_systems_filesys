@@ -30,6 +30,7 @@ struct child_process
   };
 
 
+bool faulty_esp(uintptr_t esp, uintptr_t min_addr);
 pid_t process_execute (const char *file_name);
 int process_wait (pid_t pid);
 void process_exit (void);
