@@ -271,7 +271,7 @@ read_argument_at_index(struct intr_frame *f, int arg_offset){
    to the kernel  */
 void
 syscall_exit(const int exit_type){
-  // TODO check for held locks
+
   struct thread* terminating_thread = thread_current();
   struct child_process* terminating_child = terminating_thread->child_process;
 
@@ -305,18 +305,13 @@ syscall_exit(const int exit_type){
    which could be less than size if some bytes could not be read. */
 int
 syscall_write(int fd, const void *buffer, unsigned size){
-  // TODO: it could be the case that we have to rewrite this function to ensure that
-  // the lock_filesystem is always released
+
   int returnvalue = 0;
 
   /* check if the entire buffer is valid */
   validate_buffer(buffer,size);
 
-  lock_acquire(&lock_filesystem);
-
-  // use temporary buffer to make sure we don't overflow?
   if (fd == STDOUT_FILENO){
-    unsigned sizeleft = size;
     putbuf(buffer,size);
     returnvalue = size;
   }
@@ -330,10 +325,11 @@ syscall_write(int fd, const void *buffer, unsigned size){
     if (file_ == NULL){
       returnvalue = 0;
     }else{
+      lock_acquire(&lock_filesystem);
       returnvalue = file_write(file_, buffer, size);
+      lock_release(&lock_filesystem);
     }
   }
-  lock_release(&lock_filesystem);
   return returnvalue;
 }
 
@@ -350,8 +346,6 @@ syscall_read(int fd, void *buffer, unsigned size){
 
   /* check if the entire buffer is valid */
   validate_buffer(buffer, size);
-
-  lock_acquire(&lock_filesystem);
 
   if (fd == STDOUT_FILENO){
     returnvalue = -1;
@@ -384,11 +378,11 @@ syscall_read(int fd, void *buffer, unsigned size){
     if (file_ == NULL){
       returnvalue = 0;
     }else{
+      lock_acquire(&lock_filesystem);
       returnvalue = file_read(file_, buffer, size);
+      lock_release(&lock_filesystem);
     }
   }
-
-  lock_release(&lock_filesystem);
 
   return returnvalue;
 }
