@@ -100,12 +100,8 @@ syscall_handler (struct intr_frame *f UNUSED)
       {
         char *file_name= *((char**) read_argument_at_index(f,0));
         validate_pointer(file_name);
-        if (!check_file_name(file_name)){
-          f->eax = false;
-        } else {
-          unsigned initial_size = *((unsigned*) read_argument_at_index(f,sizeof(char*)));
-          f->eax = syscall_create(file_name, initial_size);
-        }
+        unsigned initial_size = *((unsigned*) read_argument_at_index(f,sizeof(char*)));
+        f->eax = syscall_create(file_name, initial_size);
         break;
       }
 
@@ -113,11 +109,7 @@ syscall_handler (struct intr_frame *f UNUSED)
       {
         char *file_name= *((char**) read_argument_at_index(f,0));
         validate_pointer(file_name);
-        if (!check_file_name(file_name)){
-          f->eax = false;
-        } else {
-          f->eax = syscall_remove(file_name);
-        }
+        f->eax = syscall_remove(file_name);
         break;
       }
 
@@ -125,11 +117,7 @@ syscall_handler (struct intr_frame *f UNUSED)
       {
         char *file_name= *((char**) read_argument_at_index(f,0));
         validate_pointer(file_name);
-        if (!check_file_name(file_name)){
-          f->eax = false;
-        } else {
-          f->eax = syscall_open(file_name);
-        }
+        f->eax = syscall_open(file_name);
         break;
       }
 
@@ -282,7 +270,7 @@ read_argument_at_index(struct intr_frame *f, int arg_offset){
    to the kernel  */
 void
 syscall_exit(const int exit_type){
-  // TODO check for held locks
+
   struct thread* terminating_thread = thread_current();
   struct child_process* terminating_child = terminating_thread->child_process;
 
@@ -316,18 +304,13 @@ syscall_exit(const int exit_type){
    which could be less than size if some bytes could not be read. */
 int
 syscall_write(int fd, const void *buffer, unsigned size){
-  // TODO: it could be the case that we have to rewrite this function to ensure that
-  // the lock_filesystem is always released
+
   int returnvalue = 0;
 
   /* check if the entire buffer is valid */
   validate_buffer(buffer,size);
 
-  lock_acquire(&lock_filesystem);
-
-  // use temporary buffer to make sure we don't overflow?
   if (fd == STDOUT_FILENO){
-    unsigned sizeleft = size;
     putbuf(buffer,size);
     returnvalue = size;
   }
@@ -341,10 +324,11 @@ syscall_write(int fd, const void *buffer, unsigned size){
     if (file_ == NULL){
       returnvalue = 0;
     }else{
+      lock_acquire(&lock_filesystem);
       returnvalue = file_write(file_, buffer, size);
+      lock_release(&lock_filesystem);
     }
   }
-  lock_release(&lock_filesystem);
   return returnvalue;
 }
 
@@ -361,8 +345,6 @@ syscall_read(int fd, void *buffer, unsigned size){
 
   /* check if the entire buffer is valid */
   validate_buffer(buffer, size);
-
-  lock_acquire(&lock_filesystem);
 
   if (fd == STDOUT_FILENO){
     returnvalue = -1;
@@ -395,11 +377,11 @@ syscall_read(int fd, void *buffer, unsigned size){
     if (file_ == NULL){
       returnvalue = 0;
     }else{
+      lock_acquire(&lock_filesystem);
       returnvalue = file_read(file_, buffer, size);
+      lock_release(&lock_filesystem);
     }
   }
-
-  lock_release(&lock_filesystem);
 
   return returnvalue;
 }
@@ -420,11 +402,11 @@ syscall_exec(const char *cmd_line){
   if (cmd_line == NULL){
     return -1;
   }
-  if (strlen(cmd_line) == 0){
+
+  int length = validate_string(cmd_line);
+  if (length == 0){
     return -1;
   }
-
-  validate_string(cmd_line);
 
   // TODO maybe lock filesystem here because load uses IO
   pid_t pid = process_execute(cmd_line);
@@ -455,6 +437,9 @@ syscall_exec(const char *cmd_line){
    NOTE: it does not open the file! */
 bool
 syscall_create(const char *file_name, unsigned initial_size){
+  int length = validate_string(file_name);
+  if (length > max_file_name)
+    return false;
   lock_acquire(&lock_filesystem);
   bool success = filesys_create(file_name, initial_size);
   lock_release(&lock_filesystem);
@@ -465,29 +450,21 @@ syscall_create(const char *file_name, unsigned initial_size){
 /* deletes the file file_name and returns true if successful, false otherwise */
 bool
 syscall_remove(const char *file_name){
+  int length = validate_string(file_name);
+  if (length > max_file_name)
+    return false;
   lock_acquire(&lock_filesystem);
   bool success = filesys_remove(file_name);
   lock_release(&lock_filesystem);
   return success;
 }
 
-
-/* verifies if the file name is not to long or NULL 
-   returns true if successful, false otherwise. */
-bool check_file_name (const char *file_name){
-  //TODO: we need a new validate_buffer and validate_string to check before executing this function
-  if (file_name == NULL){
-    syscall_exit(-1);
-  } else if (strlen(file_name)>max_file_name){
-    return false;
-  }
-  return true;
-}
-
-
 /* opens the file file_name, returns non-negative file descriptor for
    the opened file if succesful, -1 otherwise */
 int syscall_open(const char *file_name){
+  int length = validate_string(file_name);
+  if (length > max_file_name)
+    return -1;
   lock_acquire(&lock_filesystem);
   struct file *new_file = filesys_open(file_name);
   if (new_file == NULL){
