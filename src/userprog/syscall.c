@@ -21,8 +21,8 @@ static int max_file_name = 14;
 
 void syscall_init (void);
 void validate_pointer(const void* pointer);
-void validate_buffer(void* buffer, unsigned size);
-int validate_string(char* buffer);
+void validate_buffer(const void* buffer, unsigned size);
+int validate_string(const char* buffer);
 void* read_argument_at_index(struct intr_frame *f, int arg_offset);
 void syscall_exit(const int exit_type);
 void syscall_halt(void);
@@ -35,7 +35,6 @@ bool check_file_name(const char *file_name);
 int syscall_open(const char *file_name);
 int syscall_filesize(int fd);
 struct file* get_file(int fd);
-void clear_files();
 void syscall_seek(int fd, unsigned position);
 unsigned syscall_tell(int fd);
 void syscall_close(int fd);
@@ -59,10 +58,8 @@ syscall_handler (struct intr_frame *f UNUSED)
 
   validate_pointer(esp);
 
-  // syscall type int is stored at adress esp
+  /* syscall type int is stored at adress esp */
   int32_t syscall_type = *((int*)esp);
-
-  //printf("SYSCALL: %i\n", syscall_type);
 
   switch (syscall_type)
     {
@@ -206,7 +203,6 @@ syscall_handler (struct intr_frame *f UNUSED)
 }
 
 
-// that means we have to iterate
 /* calls syscall_exit(-1) if the passed pointer is not valid in the current 
    context */
 void
@@ -221,9 +217,9 @@ validate_pointer(const void* pointer){
 /* calls syscall_exit(-1) if the passed buffer is not valid in the current 
    context */
 void
-validate_buffer(void* buffer, unsigned size){
+validate_buffer(const void* buffer, unsigned size){
   unsigned i = 0;
-  char* buffer_iter = buffer;
+  const char* buffer_iter = buffer;
   while (i < (size)){
     validate_pointer(buffer_iter + i);
     i += 1;
@@ -234,9 +230,9 @@ validate_buffer(void* buffer, unsigned size){
 /* calls syscall_exit(-1) if the passed "string" is not valid in the current 
    context, otherwise returns length of string */
 int
-validate_string(char* buffer){
+validate_string(const char* buffer){
   int length = 0;
-  char* buffer_iter = buffer;
+  const char* buffer_iter = buffer;
   validate_pointer(buffer_iter);
   while (true){
     if (*buffer_iter == '\0')
@@ -352,8 +348,6 @@ syscall_read(int fd, void *buffer, unsigned size){
       
     while (size_left > 1){
       input_char = input_getc();
-      if (input_char == NULL)
-        syscall_exit(-1);
       if (input_char == 0)
         break;
       else{

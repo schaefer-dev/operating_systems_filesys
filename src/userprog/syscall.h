@@ -3,6 +3,10 @@
 
 void syscall_init (void);
 void validate_pointer(const void* pointer);
+void clear_files(void);
+
+void syscall_exit(const int exit_type);
+
 
 /* locks the file system to avoid data races */
 struct lock lock_filesystem;

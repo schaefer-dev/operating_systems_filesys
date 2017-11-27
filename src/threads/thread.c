@@ -13,9 +13,9 @@
 #include "threads/vaddr.h"
 #include "threads/malloc.h"
 #include "filesys/file.h"
+#include "userprog/syscall.h"
 #ifdef USERPROG
 #include "userprog/process.h"
-#include "userprog/syscall.h"
 #endif
 
 /* Random value for struct thread's `magic' member.
@@ -303,15 +303,19 @@ thread_exit (void)
 {
   ASSERT (!intr_context ());
 
+  struct thread *current_thread = thread_current();
+
 #ifdef USERPROG
   process_exit ();
+  if (current_thread->executable != NULL){
+    lock_acquire(&lock_filesystem);
+    file_close((current_thread->executable));
+    lock_release(&lock_filesystem);
+  }
 #endif
 
   intr_disable ();
 
-  struct thread *current_thread = thread_current();
-  if (current_thread->executable != NULL)
-    file_close(current_thread->executable);
 
   /* free child_process ressources of this process when possible 
      and notify all childs that parent has terminated */
@@ -730,6 +734,7 @@ void thread_terminate_child_setup(){
   }
   lock_release(&current_thread->child_list_lock);
 }
+
 
 /* function to add create child_process and adds it to list */
 struct child_process* add_child(pid_t child_pid, pid_t parent_pid){
