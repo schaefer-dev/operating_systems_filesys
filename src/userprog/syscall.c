@@ -17,7 +17,7 @@
 
 static void syscall_handler (struct intr_frame *);
 
-static unsigned max_file_name = 14;
+static int max_file_name = 14;
 
 void syscall_init (void);
 void validate_pointer(const void* pointer);
@@ -340,9 +340,6 @@ int
 syscall_read(int fd, void *buffer, unsigned size){
   int returnvalue = 0;
 
-  // TODO: it could be the case that we have to rewrite this function to ensure that
-// the lock_filesystem is always released
-
   /* check if the entire buffer is valid */
   validate_buffer(buffer, size);
 
@@ -357,7 +354,6 @@ syscall_read(int fd, void *buffer, unsigned size){
     while (size_left > 1){
       input_char = input_getc();
       if (input_char == NULL)
-        // TODO: should we really exit with -1 and lock_release missing
         syscall_exit(-1);
       if (input_char == 0)
         break;
@@ -408,7 +404,6 @@ syscall_exec(const char *cmd_line){
     return -1;
   }
 
-  // TODO maybe lock filesystem here because load uses IO
   pid_t pid = process_execute(cmd_line);
   
   struct child_process *current_child = get_child(pid);
