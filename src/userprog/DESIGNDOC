@@ -8,7 +8,7 @@
 
 >> Fill in the names and email addresses of your group members.
 
-Daniel Schaefer <s9dlscae@stud.uni-saaland.de>
+Daniel Schäfer <s9dlscae@stud.uni-saaland.de>
 Christian Bohnenberger <s9cnbohn@stud.uni-saaland.de>
 
 ---- PRELIMINARIES ----
@@ -20,6 +20,8 @@ Christian Bohnenberger <s9cnbohn@stud.uni-saaland.de>
 >> preparing your submission, other than the Pintos documentation, course
 >> text, lecture notes, and course staff.
 
+man strtok
+
 			   ARGUMENT PASSING
 			   ================
 
@@ -29,21 +31,82 @@ Christian Bohnenberger <s9cnbohn@stud.uni-saaland.de>
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+struct lock lock_filesystem;
+global lock defined in syscall.h which is used in load to protect against
+data races during the exectution of load()
+
 ---- ALGORITHMS ----
 
 >> A2: Briefly describe how you implemented argument parsing.  How do
 >> you arrange for the elements of argv[] to be in the right order?
 >> How do you avoid overflowing the stack page?
 
+The first important step regarding Argument Passing is the execution
+of process_execute. In this function we make sure to copy the passed
+file_name into a new page. (which is important to avoid races between
+the caller and the load process of the newly started process. In this new
+page we use strtok_r to extract the first "word" contained in the passed
+string. This first word is the command_name (name of executable) which
+is being passed to thread_create together with the page of the entire
+string. It is obviously very important to free the newly allocated page
+after thread_create is finished.
+
+When start_process is being called later on, we tokenize the arguments
+contained in the page we passed over to thread_create again by using
+strtok_r. During the tokenizing Process we use strlpy with size tokensize+1
+because we have to guarantee the terminating \0 character after each argument
+token.
+
+These arguments are pushed (in reverse order) to a argument_page
+which we allocate to store the arguments of this process which will later
+be put on the stack according to C 80x86 Calling Convention. We push them
+in reverse order, to make the process of building the stack in stack_setup
+easier.
+
+start_process eventually calls load and passes the filename and the page
+which contains the tokenized arguments in reverse order. Again it is important
+to free the allocated pages after load() has returned.
+
+setup_stack is being called during the load execution and takes care
+of building the stack according to C 80x86 Calling Convention. It takes
+the arguments contained in the argument page one by one and decrements the
+esp (starting at PHYS_BASE) according to the size of this token and verifies
+if the esp is still valid in the current context (not outside page etc. to
+avoid overflowing the stack).
+The stack is built exactly as explained in Section 3.5.1 Program Startup
+Details (again - everything one by one with verification of esp before any
+data is being written!) You have to be very careful while decrementing the
+ESP, because some values are characters (1byte) some are pointers (4byte)
+and others are int (4bytes).
+
+
 ---- RATIONALE ----
 
 >> A3: Why does Pintos implement strtok_r() but not strtok()?
-Not thread safe for strtok, for strtok_r every thread has his own
-pointer which tracks his "progress"
+
+strtok_r() can be called in multiple threads simultaneously or in nested
+loops because every execution of strtok_r has its own pointer which tracks
+the context of this strtok_r execution which is proided by the caller.
+Strtok does not allow the caller to pass this pointer and just has this
+context internally for the next execution (which could be somewhere else
+-> data races) Pintos uses strtok_r because the kernel needs to be reentrant.
+
 
 >> A4: In Pintos, the kernel separates commands into a executable name
 >> and arguments.  In Unix-like systems, the shell does this
 >> separation.  Identify at least two advantages of the Unix approach.
+
+A big advantage of this is very obvious: We would spend less time in the
+Kernel which is advantagous for the overall system performance. 
+
+Additionally this check would enable us to verify the existance of the
+executable and checking the arguments before they are being passed (e.g.
+max size). It would also be possible to apply certain preprocessing
+in general to these arguments, which might e.g. save instructions by
+optimizing something like "cd; cd home; cd test;" to "cd ~/home/test".
+While all this might be possible in the Kernel, it would add a lot of
+complexity and potential issues to it, which is a bad idea (keyword:
+Abstraction)
 
 			     SYSTEM CALLS
 			     ============
@@ -54,9 +117,111 @@ pointer which tracks his "progress"
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+Additions to struct thread:
+    /* List of all open files of this thread. */
+    struct list file_list;
+    this list contains values of type: struct file_entry which correspond
+    to this thread. (explanation of file_entry below)
+
+    /* List of all child processes of this thread */
+    struct list child_list;
+    this List contains all children of this process of type:
+    struct child_process which correspond to this thread (which acts as parent)
+
+    /* the executable of this thread */
+    struct file *executable;
+    the open file which is being executed in this thread (important to close
+    it after thread exits)
+
+    /* lock to protect operations in child_list */
+    struct lock child_list_lock;
+    this lock guarantees that at most one thread can work on the child_list
+    (explained above) at the same time to avoid data races
+
+    /* save the reference of its own child_process struct to
+      change the load status after load is done */
+    struct child_process *child_process;
+    The struct child_process contains values like exit_value, etc. for
+    this thread which can be accessed by this threads parent.
+
+    /* Counter to give every file in file list a unique fd */
+    int current_fd;
+    Counter for file_descriptor, which guarantees that every file descriptor
+    in this thread has a unique int.
+
+
+New Struct file_entry:
+    /* Struct to save open files of a thread in a linked list */
+    struct file_entry
+      {
+        struct file *file;
+        int fd;
+        struct list_elem elem; 
+      };
+    this struct contains the reference to the open file and the unique
+    file descriptor int corresponding to it.
+
+
+New Struct child_process:
+    /*  every process which is created by a parent process is considered a
+        child process and contains a struct child_process which stores all
+        important values for child processes */
+    struct child_process
+      {
+        int exit_status;
+        pid_t pid;
+        pid_t parent;
+        bool terminated;
+        bool waited_for;
+        int successfully_loaded;
+        struct lock child_process_lock;
+        struct condition loaded;
+        struct condition terminated_cond;
+        struct list_elem elem;
+      };
+
+      - exit_status saves the status with which this thread (every child_process
+      belongs to exactly 1 thread) exited.
+      - pid saves the process id of this particular thread/child
+      - parent saves the process id of the parent of this particular
+      thread/child
+      - terminated contains whether the process/child has already
+      exited.
+      - waited_for tracks if the parent of this child is waiting for
+      this child to terminate.
+      - successfully_loaded contains the returnvalue of load, which has
+      to be accessible to the parent.
+      - child_process_lock is important to guarantee that at most one
+      thread is reading/writing information inside this struct (because
+      parent and child access this struct)
+      - loaded is being signaled after laod is finished, so that parent
+      gets notified as soon as load finished successfully or not.
+      - terminated_cond is being signaled after the child has exited,
+      because parent might be waiting for this child.
+
+typedef int pid_t;
+      pid_t is an int and equivalent to tid_t (1:1 mapping)
+
+  /* NOT_LOADED value for processes which are still in 
+    the process of loading */
+  #define NOT_LOADED 0
+  #define LOAD_SUCCESS 1
+  #define LOAD_FAILURE 2
+  These values are being used to save valus into the loaded field of struct
+  child_process.
+
+
 >> B2: Describe how file descriptors are associated with open files.
 >> Are file descriptors unique within the entire OS or just within a
 >> single process?
+
+File descriptors are being created in the syscall_open and are unique only
+withing a single process. This is sufficient (and better) because
+file descriptors can only be used inside the process in which they are being
+created because every thread can only access its own file descriptors.
+Closing a file will result in the removal of the file_entry structure belonging
+to this file and additionally remove this entry in the file_list list
+belonging to the running process.
 
 ---- ALGORITHMS ----
 
