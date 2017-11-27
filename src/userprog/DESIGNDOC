@@ -227,7 +227,57 @@ belonging to the running process.
 
 >> B3: Describe your code for reading and writing user data from the
 >> kernel.
-Verify pointer etc. and write to file.
+
+Reading:
+
+  We extract the arguments of syscall_read by reading it from the intr_frame f.
+  Afterwards it is very important to verify the passed buffer. This happens by
+  iterating over the buffer and verifying every single pointer contained in this
+  buffer until offset "size" has been reached. 
+
+  Pointer validation checks if the pointer is not NULL, if the pointer is in the
+  user virtual adress space (is_user_vaddr(pointer)) and if there is a valid
+  page at this address (by checking pagedir_get_page(pagedir, pointer) is not
+  NULL). If one of this contitions is violated, pointer validation will invoke a
+  syscall_exit(-1)
+
+  After the buffer has been validated, we check the value of the file
+  descryptor. If STDOUT_FILENO has been passed we return -1, if STDIN_
+  FILENO has been passed we iterate over the buffer and write the return
+  value of input_getc() to the current adress. For every other file descryptor
+  value we open the file corresponding to this descryptor (on fail we return 0)
+  We then use the function "file_read" to write the content of the passed
+  file to the buffer. Because we are reading from disk with file_read it is
+  important to acquire the filesystem lock before executing and releasing it
+  afterwards. In any case we return the amount of bytes being read
+  successfully.
+
+
+Writing: (mostly the same)
+  
+  We extract the arguments of syscall_write by reading it from the intr_frame f.
+  Afterwards it is very important to verify the passed buffer. This happens by
+  iterating over the buffer and verifying every single pointer contained in this
+  buffer until offset "size" has been reached. 
+
+  Pointer validation checks if the pointer is not NULL, if the pointer is in the
+  user virtual adress space (is_user_vaddr(pointer)) and if there is a valid
+  page at this address (by checking pagedir_get_page(pagedir, pointer) is not
+  NULL). If one of this contitions is violated, pointer validation will invoke a
+  syscall_exit(-1)
+
+  After the buffer has been validated, we check the value of the file
+  descryptor. If STDIN_FILENO has been passed we return -1, if STDOUT_
+  FILENO has been passed we call putbuf(buffer,size) which will print size
+  amount of characters from the buffer to STDOUT.
+  For every other file descryptor
+  value we open the file corresponding to this descryptor (on fail we return 0)
+  We then use the function "file_write" to write the content of the passed
+  buffer to the opened file. Because we are writing to disk with file_write it
+  is important to acquire the filesystem lock before executing and releasing it
+  afterwards. In any case we return the amount of bytes being written
+  successfully.
+
 
 >> B4: Suppose a system call causes a full page (4,096 bytes) of data
 >> to be copied from user space into the kernel.  What is the least
@@ -236,8 +286,53 @@ Verify pointer etc. and write to file.
 >> for a system call that only copies 2 bytes of data?  Is there room
 >> for improvement in these numbers, and how much?
 
+full page:
+  We assume that pages are continous, which would mean that would have at
+  least 1 inspection and at most 2. At least 1 because in the case of
+  receiving the page start (which can be identified using the reference
+  and modulu calculation), we know that an entire page is "following".
+  At most 2 because, we have to check for 1) the start 2) the end of the
+  page to see if its mapped.
+
+2bytes:
+  At least 1 inspection, because we have to check if we are inside the page
+  (not at the very end, which can again be determined by modulu calculation).
+  And at most 2 inspections because we just have to check if both bytes are
+  inside the page.
+
+We don't see any room to improve, but its probably a good idea to have
+continious pages of fixed size, so you can use modulu operation to achieve
+a low amount of average inspections.
+
+
 >> B5: Briefly describe your implementation of the "wait" system call
 >> and how it interacts with process termination.
+
+Process_wait will at first check if the passed child-tid matches to any
+of its childs, otherwise return -1. When the child is contained in the
+list of childs of the calling Process we at first check if this child has
+already been waited for (not allowed to wait twice for the same pid).
+During the access of the child->waited_for field, the child struct is being
+locked by acquiring the child_process_lock of this particular child.
+
+If this child has not been waited for already we mark it as being waited for
+and check if it already terminated. If not we wait for a termination signal
+sent by this particular child. If it does or has already terminated we return
+with the exit_status of this child, which is also saved in its child_process
+struct and release the lock for this child_process. 
+
+It is important to wait for the termination signal if the child is not already
+marked as terminated, because the parent has no idea when the child will finish
+its "work". Thats the reason why we need synchronization with process
+termination. Assuming the child has already terminated - it is very simple
+because a child which terminates and still has a parent which has not
+terminated will not remove/free any values in its child_process struct. So the
+parent is always able to access a childs exit_status regardless of how long
+the exit of this child is already ago.
+
+As explained above already the signal of the child termination is being sent
+during exit (explained in detail in different question).
+
 
 >> B6: Any access to user program memory at a user-specified address
 >> can fail due to a bad pointer value.  Such accesses must cause the
@@ -253,12 +348,86 @@ Verify pointer etc. and write to file.
 >> paragraphs, describe the strategy or strategies you adopted for
 >> managing these issues.  Give an example.
 
+As already mentioned in the Write/Read part:
+  Pointer validation checks if the pointer is not NULL, if the pointer is in the
+  user virtual adress space (is_user_vaddr(pointer)) and if there is a valid
+  page at this address (by checking pagedir_get_page(pagedir, pointer) is not
+  NULL). If one of this contitions is violated, pointer validation will invoke a
+  syscall_exit(-1).
+
+  syscall_exit will take care of freeing all allocated ressources.
+  It is guaranteed that no locks can be held when syscall_exit is called,
+  because we make sure to validate every pointer before any locks are
+  being acquired. In general it is not possible for a syscall_exit to occur
+  while a lock is being held anywhere in our code.
+
+  In the execution of syscall_exit we have to check if the terminated
+  process is a child process and if yes, if its parent is still running.
+
+ 
+  This is absolutely essential to check, because we have to keep the values
+  stored in struct child_process for every child until the parent exits. If
+  a parent exits it will free the child_process structure of every child
+  which already terminated before the parent. Every child which is left
+  because it was still running when parent exited now has to free the
+  child_process structure of itself when it exits. To ensure that all
+  this is happening, we have to 1) use a lock to access values of each
+  child_process (this lock is stored in child_process itself) and a seperate
+  lock to work on the list of child processes (this list is held by the parent
+  process). Every child also sends a signal to its parent whenever it
+  terminates. (this is imporant to implement the wait functionallity).
+
+  Our strategy guarantees that either child or the parent are freeing
+  the ressources allocated for the child-parent structure and it is
+  impossible for any structs etc. to not be freed by either of them.
+
+  Additionally syscall_exit makes sure to free all file descryptors which are
+  currently being held by this thread.
+
+  Afterwards thread_exit is being called which removes the thread from
+  the list of running threads closes the opened executable file (if it has
+  one), and invokes the freeing of all ressources of terminated childs
+  (as explained above) and calls process_exit if the thread is a userprogram.
+
+  For example Thread A starts and pointer_verification fails, which results
+  in syscall_exit(-1) to be called. syscall_exit will check if this program
+  is a child_process, this is not the case - so it will just close all file
+  descryptors being held by Thread A. Afterwards it will print the exit message
+  and call thread_exit(). This will close the executable of this Thread
+  if there is one and check if Thread A has any children in method
+  thread_terminate_child_setup() which it doesnt, so the thread status will
+  be set to dying. Afterwards a new process will be scheduled.
+
+  We also made sure to call syscall_exit inside page_fault (exception.c)
+  because VM will be implemented in Project 3 and our Programs have to be
+  able to recover from Page faults. We made sure to only invoke this exit
+  if the fault_addr is NULL or if a user tried to access non-user-vaddr or
+  if the user did not have this page in their pagedir or if it tried to write
+  to a read-only page.
+
+
 ---- SYNCHRONIZATION ----
 
 >> B7: The "exec" system call returns -1 if loading the new executable
 >> fails, so it cannot return before the new executable has completed
 >> loading.  How does your code ensure this?  How is the load
 >> success/failure status passed back to the thread that calls "exec"?
+
+When a child process is created it sets successfully_loaded = NOT_LOADED.
+And after the load function has finished it will send a signal to a
+(maybe) waiting parent. After this signal was being sent parent can
+access the successfully_loaded field in child_process which now contains
+either LOAD_SUCCESS or LOAD_FAILURE. When we write into the successfully_
+loaded field, we always acquire the lock of this particular child_process
+first. So no races on any of the field are possible. After it is being
+written (updated) we have to use the signal to wake up a parent which is
+potentially waiting for our loading to finish.
+The parent is waiting inside the syscall_exec in a
+while(successfully_loaded==NOT_LOADED) loop in which it waits for the
+child to signal a update on this successfully_loaded field. If the value
+in the successfully_loaded field is LOAD_FAILURE after receiving the signal
+the parent syscall_exec will return -1.
+
 
 >> B8: Consider parent process P with child process C.  How do you
 >> ensure proper synchronization and avoid race conditions when P
@@ -267,16 +436,43 @@ Verify pointer etc. and write to file.
 >> terminates without waiting, before C exits?  After C exits?  Are
 >> there any special cases?
 
+Everything has been explained above already in detail. In general
+we use condition variables combined with fields in our child_process struct
+which indicate the termination and loading status of child/parent.
+A exiting parent will free all resources of already terminated childs
+(and its own structure) while childs will only free their child_process
+structure whenever their parent has already terminated (indicated by
+child_structure->parent = -1).
+
+
 ---- RATIONALE ----
 
 >> B9: Why did you choose to implement access to user memory from the
 >> kernel in the way that you did?
 
+We decided to implement the easier approach (validating the pointer before
+dereferencing it) because we felt much more confident in implementing this
+and we expected error resistance to be much more important than very small
+performance improvements (if using MMU).
+
 >> B10: What advantages or disadvantages can you see to your design
 >> for file descriptors?
 
+The big advantage of storing file descriptors inside the struct thread is
+that we have to iterate over a much much smaller list when we are looking
+for a particular opened file. The disadvantage is that we are still iterating
+over a List O(n) with average O(n/2). Sorting this list would help a bit,
+because you could use binary-search. But since there are many insert (open)
+the overhead to sorted list is quite significant. And closing/freeing all file
+descryptors on thread_exit is very cheap (because we can just pop one by one)
+even with an unsorted list. The best approach would be to use a hashmap
+mapping file descryptors to the open file.
+
 >> B11: The default tid_t to pid_t mapping is the identity mapping.
 >> If you changed it, what advantages are there to your approach?
+
+We decided to use pid_t as tid_t as identity mapping, because we did
+not see any advantages to a different approach.
 
 			   SURVEY QUESTIONS
 			   ================
@@ -301,3 +497,8 @@ the quarter.
 >> students, either for future quarters or the remaining projects?
 
 >> Any other comments?
+
+Filling out this designdoc sufficiently is very hard (especially because
+brief is very subjective and so is completeness of our answers) and
+annoying. It would probably be a good idea to replace these DESIGNDOCS
+by CODE Reviews / Interviews.
