@@ -49,6 +49,8 @@ syscall_init (void)
   lock_init (&lock_filesystem);
 }
 
+/* takes care of reading arguments and passing them to the correct syscall
+   function */
 static void
 syscall_handler (struct intr_frame *f UNUSED) 
 {
@@ -87,6 +89,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     case SYS_WAIT:
       {
         pid_t pid = *((pid_t*) read_argument_at_index(f, 0));
+        /* process_wait takes care of the work! */
         f->eax = process_wait(pid);
         break;
       }
@@ -217,18 +220,19 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
 }
 
+
+/* calls syscall_exit(-1) if the passed pointer is not valid in the current 
+   context */
 void
 validate_pointer(const void* pointer){
-  // Validation of pointer
   uint32_t *pagedir = thread_current()->pagedir;
   if (pointer == NULL || !is_user_vaddr(pointer) || pagedir_get_page(pagedir, pointer)==NULL || pointer< 0x08048000){
-    // Exit if pointer is not valid
     syscall_exit(-1);
   }
 }
-  
 
-// Read argument of frame f at location shift.
+
+/* return argument of frame f at location shift */
 void *
 read_argument_at_index(struct intr_frame *f, int arg_offset){
 
@@ -241,7 +245,9 @@ read_argument_at_index(struct intr_frame *f, int arg_offset){
   return argument;
 }
 
-
+/* execute the exit syscall with the passed exit_type 
+   Terminates the current user program, returning status
+   to the kernel  */
 void
 syscall_exit(const int exit_type){
   // TODO check for held locks
@@ -273,6 +279,9 @@ syscall_exit(const int exit_type){
 }
 
 
+/* Writes size bytes from the file with the filedescriptor fd into
+   the passed buffer. Returns the number of bytes actually written, 
+   which could be less than size if some bytes could not be read. */
 int
 syscall_write(int fd, const void *buffer, unsigned size){
   int returnvalue = 0;
@@ -305,6 +314,9 @@ syscall_write(int fd, const void *buffer, unsigned size){
 }
 
 
+/* reads size amount of bytes from the file with the file descryptor fd.
+   Returns the number of bytes actually read or -1 if the file could not
+   be read */
 int
 syscall_read(int fd, void *buffer, unsigned size){
   int returnvalue = 0;
@@ -352,11 +364,16 @@ syscall_read(int fd, void *buffer, unsigned size){
   return returnvalue;
 }
 
+/* Terminates pintos */
 void
 syscall_halt(){
   shutdown_power_off();
 }
 
+
+/* Runs the passed executable and returns the new process's
+   program id. Returns -1 if the program cannot load or run
+   for any reason. */
 tid_t
 syscall_exec(const char *cmd_line){
 
@@ -396,6 +413,10 @@ syscall_exec(const char *cmd_line){
   return pid;  // return to process pid
 }
 
+
+/* Creates a new file with the name file_name with size initial_size.
+   Returns true if successful, false otherwise. 
+   NOTE: it does not open the file! */
 bool
 syscall_create(const char *file_name, unsigned initial_size){
   lock_acquire(&lock_filesystem);
@@ -404,6 +425,8 @@ syscall_create(const char *file_name, unsigned initial_size){
   return success;
 }
 
+
+/* deletes the file file_name and returns true if successful, false otherwise */
 bool
 syscall_remove(const char *file_name){
   lock_acquire(&lock_filesystem);
@@ -412,15 +435,21 @@ syscall_remove(const char *file_name){
   return success;
 }
 
+
+/* verifies if the file name is not to long or NULL 
+   returns true if successful, false otherwise. */
 bool check_file_name (const char *file_name){
-	if (file_name == NULL){
-		syscall_exit(-1);
-	} else if (strlen(file_name)>max_file_name){
-		return false;
-	}
-	return true;
+  if (file_name == NULL){
+    syscall_exit(-1);
+  } else if (strlen(file_name)>max_file_name){
+    return false;
+  }
+  return true;
 }
 
+
+/* opens the file file_name, returns non-negative file descriptor for
+   the opened file if succesful, -1 otherwise */
 int syscall_open(const char *file_name){
   lock_acquire(&lock_filesystem);
   struct file *new_file = filesys_open(file_name);
@@ -439,6 +468,8 @@ int syscall_open(const char *file_name){
   return current_fd;
 }
 
+
+/* returns the size of the file with the file descriptor fd in bytes */
 int syscall_filesize(int fd){
   struct file* file = get_file(fd);
   if (file == NULL){
@@ -517,6 +548,8 @@ get_list_elem(int fd){
 }
 
 
+/* Changes the next byte to be read or written in the file with filedescriptor
+   fd to the position position. */
 void syscall_seek(int fd, unsigned position){
   struct file *file = get_file(fd);
   if (file == NULL){
@@ -527,6 +560,9 @@ void syscall_seek(int fd, unsigned position){
   lock_release(&lock_filesystem);
 }
 
+
+/* Returns the position of the next byte to be read or written in the file with
+   file-descriptor fd */
 unsigned syscall_tell(int fd){
   struct file *file = get_file(fd);
   if (file == NULL){
@@ -538,6 +574,8 @@ unsigned syscall_tell(int fd){
   return pos;
 }
 
+
+/* Closes the file with filedescriptor fd */
 void syscall_close(int fd){
   lock_acquire(&lock_filesystem);
   struct list_elem *element = get_list_elem(fd);

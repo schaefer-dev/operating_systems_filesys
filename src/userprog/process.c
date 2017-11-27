@@ -534,6 +534,8 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
   return true;
 }
 
+
+/* returns true if the passed esp is outside the held page */
 bool faulty_esp(intptr_t esp, intptr_t min_addr){
   if (esp < min_addr)
    return true;
@@ -560,9 +562,7 @@ setup_stack (void **esp, char *argument_buffer, int argcount)
         int i = 0;
         char *esp_iter = (char*) *esp;
 
-        // TODO only read at most arguments for 1 full page
-
-        // writing argument values to stack
+        /* writing argument values to stack */
         for (i = 0; i < argcount; i++){
           int argument_size = strlen(argument_buffer);
           esp_iter -= argument_size + 1;
@@ -579,13 +579,13 @@ setup_stack (void **esp, char *argument_buffer, int argcount)
 
         char **int_esp_iter = (char**) esp_iter;
 
-        // terminating char pointer
+        /* terminating char pointer */
         int_esp_iter -= 1;
         if (faulty_esp(esp_iter, PHYS_BASE - PGSIZE))
           return -1;
         *int_esp_iter = 0;
 
-        // writing argument references to stack
+        /* writing argument references to stack */
         for (i = 0; i < argcount; i++){
           int_esp_iter -= 1;
           if (faulty_esp(esp_iter, PHYS_BASE - PGSIZE))
@@ -593,19 +593,19 @@ setup_stack (void **esp, char *argument_buffer, int argcount)
           *int_esp_iter = argument_adress_array[i];
         }
 
-        // write argv reference to stack
+        /* write argv reference to stack */
         int_esp_iter -= 1;
         if (faulty_esp(esp_iter, PHYS_BASE - PGSIZE))
           return -1;
         *int_esp_iter = int_esp_iter + 1;
 
-        // write argc to stack
+        /* write argc to stack */
         int_esp_iter -= 1;
         if (faulty_esp(esp_iter, PHYS_BASE - PGSIZE))
           return -1;
         *int_esp_iter = argcount;
 
-        // write return adress to stack
+        /* write return adress to stack */
         int_esp_iter -= 1;
         if (faulty_esp(esp_iter, PHYS_BASE - PGSIZE))
           return -1;
