@@ -446,7 +446,7 @@ bool
 syscall_create(const char *file_name, unsigned initial_size){
   int length = validate_string(file_name);
   if (length > max_file_name)
-    return -1;
+    return false;
   lock_acquire(&lock_filesystem);
   bool success = filesys_create(file_name, initial_size);
   lock_release(&lock_filesystem);
@@ -459,7 +459,7 @@ bool
 syscall_remove(const char *file_name){
   int length = validate_string(file_name);
   if (length > max_file_name)
-    return -1;
+    return false;
   lock_acquire(&lock_filesystem);
   bool success = filesys_remove(file_name);
   lock_release(&lock_filesystem);
