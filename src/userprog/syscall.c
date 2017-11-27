@@ -140,25 +140,21 @@ syscall_handler (struct intr_frame *f UNUSED)
 
     case SYS_READ:
       {
-        lock_acquire(&lock_filesystem);
         int fd = *((int*)read_argument_at_index(f,0)); 
         void *buffer = *((void**)read_argument_at_index(f,sizeof(int))); 
         unsigned size = *((unsigned*)read_argument_at_index(f,2*sizeof(int))); 
         int returnvalue = syscall_read(fd, buffer, size);
         f->eax = returnvalue;
-        lock_release(&lock_filesystem);
       }
       break;
 
     case SYS_WRITE:
       {
-        lock_acquire(&lock_filesystem);
         int fd = *((int*)read_argument_at_index(f,0)); 
         void *buffer = *((void**)read_argument_at_index(f,sizeof(int))); 
         unsigned size = *((unsigned*)read_argument_at_index(f,2*sizeof(int))); 
         int returnvalue = syscall_write(fd, buffer, size);
         f->eax = returnvalue;
-        lock_release(&lock_filesystem);
         break;
       }
 
@@ -221,6 +217,8 @@ syscall_handler (struct intr_frame *f UNUSED)
 }
 
 
+//TODO: we need a new validate_buffer and validate_string to check 
+// that means we have to iterate
 /* calls syscall_exit(-1) if the passed pointer is not valid in the current 
    context */
 void
@@ -284,12 +282,17 @@ syscall_exit(const int exit_type){
    which could be less than size if some bytes could not be read. */
 int
 syscall_write(int fd, const void *buffer, unsigned size){
+  // TODO: it could be the case that we have to rewrite this function to ensure that
+// the lock_filesystem is always released
   int returnvalue = 0;
 
   /* check if the entire buffer is valid */
+  //TODO: we need a new validate_buffer and validate_string to check 
   uintptr_t buffer_end = ((uintptr_t)buffer) + size - 1;
   validate_pointer(buffer);
   validate_pointer(buffer_end);
+
+  lock_acquire(&lock_filesystem);
 
   // use temporary buffer to make sure we don't overflow?
   if (fd == STDOUT_FILENO){
@@ -310,6 +313,7 @@ syscall_write(int fd, const void *buffer, unsigned size){
       returnvalue = file_write(file_, buffer, size);
     }
   }
+  lock_release(&lock_filesystem);
   return returnvalue;
 }
 
@@ -321,10 +325,16 @@ int
 syscall_read(int fd, void *buffer, unsigned size){
   int returnvalue = 0;
 
+  // TODO: it could be the case that we have to rewrite this function to ensure that
+// the lock_filesystem is always released
+
   /* check if the entire buffer is valid */
+  //TODO: we need a new validate_buffer and validate_string to check 
   uintptr_t buffer_end = ((uintptr_t)buffer) + size - 1;
   validate_pointer(buffer);
   validate_pointer(buffer_end);
+
+  lock_acquire(&lock_filesystem);
 
   if (fd == STDOUT_FILENO){
     returnvalue = -1;
@@ -335,9 +345,11 @@ syscall_read(int fd, void *buffer, unsigned size){
     uint8_t input_char = 0;
       
     while (size_left > 1){
+       //TODO: we need a new validate_buffer and validate_string to check 
       validate_pointer(buffer_copy);
       input_char = input_getc();
       if (input_char == NULL)
+        // TODO: should we really exit with -1 and lock_release missing
         syscall_exit(-1);
       if (input_char == 0)
         break;
@@ -360,6 +372,8 @@ syscall_read(int fd, void *buffer, unsigned size){
       returnvalue = file_read(file_, buffer, size);
     }
   }
+
+  lock_release(&lock_filesystem);
 
   return returnvalue;
 }
@@ -385,6 +399,7 @@ syscall_exec(const char *cmd_line){
   }
 
   // TODO validate every single pointer until end!
+  //TODO: we need a new validate_buffer and validate_string to check
   /* Validate end of passed string */
   int arg_length = strlen(cmd_line);
   char *cmd_line_end = cmd_line + arg_length + 1;
@@ -439,6 +454,7 @@ syscall_remove(const char *file_name){
 /* verifies if the file name is not to long or NULL 
    returns true if successful, false otherwise. */
 bool check_file_name (const char *file_name){
+  //TODO: we need a new validate_buffer and validate_string to check before executing this function
   if (file_name == NULL){
     syscall_exit(-1);
   } else if (strlen(file_name)>max_file_name){
