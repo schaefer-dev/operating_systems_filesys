@@ -96,9 +96,6 @@ struct thread
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 
-
-    // TODO move all USERPROG stuff down into ifdef, also move initialization etc
-    // TODO maybe lock this list of files
     /* List of all open files of this thread. */
     struct list file_list;
 
