@@ -21,8 +21,8 @@ static int max_file_name = 14;
 
 void syscall_init (void);
 void validate_pointer(const void* pointer);
-void validate_buffer(const void* buffer, unsigned size);
-int validate_string(const char* buffer);
+void validate_buffer(void* buffer, unsigned size);
+int validate_string(char* buffer);
 void* read_argument_at_index(struct intr_frame *f, int arg_offset);
 void syscall_exit(const int exit_type);
 void syscall_halt(void);
@@ -48,7 +48,6 @@ syscall_init (void)
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
   lock_init (&lock_filesystem);
 }
-
 /* takes care of reading arguments and passing them to the correct syscall
    function */
 static void
@@ -222,8 +221,8 @@ validate_pointer(const void* pointer){
 /* calls syscall_exit(-1) if the passed buffer is not valid in the current 
    context */
 void
-validate_buffer(const void* buffer, unsigned size){
-  int i = 0;
+validate_buffer(void* buffer, unsigned size){
+  unsigned i = 0;
   char* buffer_iter = buffer;
   while (i < (size)){
     validate_pointer(buffer_iter + i);
@@ -235,7 +234,7 @@ validate_buffer(const void* buffer, unsigned size){
 /* calls syscall_exit(-1) if the passed "string" is not valid in the current 
    context, otherwise returns length of string */
 int
-validate_string(const char* buffer){
+validate_string(char* buffer){
   int length = 0;
   char* buffer_iter = buffer;
   validate_pointer(buffer_iter);

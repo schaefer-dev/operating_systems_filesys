@@ -687,16 +687,17 @@ allocate_tid (void)
 
 struct thread* get_thread(pid_t thread_tid){
   struct list_elem *e;
-  struct thread *iterator_thread;
+  struct thread *iterator_thread = NULL;
 
   // TODO maybe lock this?
   e = list_head(&all_list);
   while (e != list_tail(&all_list)){
     iterator_thread = list_entry(e, struct thread, allelem);
     if (iterator_thread->tid == thread_tid)
-      return iterator_thread;
-
+      break;
   }
+
+  return iterator_thread;
 }
 
 

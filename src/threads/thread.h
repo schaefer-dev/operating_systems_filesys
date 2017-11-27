@@ -178,7 +178,9 @@ void wakeup_sleeping_threads(int64_t);
 void sleeping_thread_insert(struct thread *, int64_t);
 
 
-// returns thread with tid
+void clear_files(void);
+void thread_terminate_child_setup(void);
+
 struct thread* get_thread(tid_t);
 
 #endif /* threads/thread.h */
