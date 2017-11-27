@@ -38,6 +38,8 @@ Christian Bohnenberger <s9cnbohn@stud.uni-saaland.de>
 ---- RATIONALE ----
 
 >> A3: Why does Pintos implement strtok_r() but not strtok()?
+Not thread safe for strtok, for strtok_r every thread has his own
+pointer which tracks his "progress"
 
 >> A4: In Pintos, the kernel separates commands into a executable name
 >> and arguments.  In Unix-like systems, the shell does this
