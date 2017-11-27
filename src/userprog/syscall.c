@@ -41,7 +41,6 @@ struct list_elem* get_list_elem(int fd);
 
 struct lock lock_filesystem;
 
-
 void
 syscall_init (void) 
 {
@@ -62,6 +61,8 @@ syscall_handler (struct intr_frame *f UNUSED)
 
   // syscall type int is stored at adress esp
   int32_t syscall_type = *((int*)esp);
+
+  printf("SYSCALL: %i\n", syscall_type);
 
   switch (syscall_type)
     {
@@ -224,9 +225,42 @@ syscall_handler (struct intr_frame *f UNUSED)
 void
 validate_pointer(const void* pointer){
   uint32_t *pagedir = thread_current()->pagedir;
-  if (pointer == NULL || !is_user_vaddr(pointer) || pagedir_get_page(pagedir, pointer)==NULL || pointer< 0x08048000){
+  if (pointer == NULL || !is_user_vaddr(pointer) || pagedir_get_page(pagedir, pointer)==NULL){
     syscall_exit(-1);
   }
+}
+
+
+/* calls syscall_exit(-1) if the passed buffer is not valid in the current 
+   context */
+void
+validate_buffer(const void* buffer, unsigned size){
+  int i = 0;
+  char* buffer_iter = buffer;
+  while (i < (size)){
+    validate_pointer(buffer_iter + i);
+    i += 1;
+  }
+}
+
+
+/* calls syscall_exit(-1) if the passed "string" is not valid in the current 
+   context, otherwise returns length of string */
+int
+validate_string(const char* buffer){
+  int length = 0;
+  char* buffer_iter = buffer;
+  validate_pointer(buffer_iter);
+  while (true){
+    if (buffer_iter == '\0')
+      break; 
+      
+    buffer_iter += 1;
+    length += 1;
+    validate_pointer(buffer_iter);
+  }
+
+  return length;
 }
 
 
@@ -283,14 +317,11 @@ syscall_exit(const int exit_type){
 int
 syscall_write(int fd, const void *buffer, unsigned size){
   // TODO: it could be the case that we have to rewrite this function to ensure that
-// the lock_filesystem is always released
+  // the lock_filesystem is always released
   int returnvalue = 0;
 
   /* check if the entire buffer is valid */
-  //TODO: we need a new validate_buffer and validate_string to check 
-  uintptr_t buffer_end = ((uintptr_t)buffer) + size - 1;
-  validate_pointer(buffer);
-  validate_pointer(buffer_end);
+  validate_buffer(buffer,size);
 
   lock_acquire(&lock_filesystem);
 
@@ -329,10 +360,7 @@ syscall_read(int fd, void *buffer, unsigned size){
 // the lock_filesystem is always released
 
   /* check if the entire buffer is valid */
-  //TODO: we need a new validate_buffer and validate_string to check 
-  uintptr_t buffer_end = ((uintptr_t)buffer) + size - 1;
-  validate_pointer(buffer);
-  validate_pointer(buffer_end);
+  validate_buffer(buffer, size);
 
   lock_acquire(&lock_filesystem);
 
@@ -345,8 +373,6 @@ syscall_read(int fd, void *buffer, unsigned size){
     uint8_t input_char = 0;
       
     while (size_left > 1){
-       //TODO: we need a new validate_buffer and validate_string to check 
-      validate_pointer(buffer_copy);
       input_char = input_getc();
       if (input_char == NULL)
         // TODO: should we really exit with -1 and lock_release missing
@@ -398,12 +424,7 @@ syscall_exec(const char *cmd_line){
     return -1;
   }
 
-  // TODO validate every single pointer until end!
-  //TODO: we need a new validate_buffer and validate_string to check
-  /* Validate end of passed string */
-  int arg_length = strlen(cmd_line);
-  char *cmd_line_end = cmd_line + arg_length + 1;
-  validate_pointer(cmd_line_end);
+  validate_string(cmd_line);
 
   // TODO maybe lock filesystem here because load uses IO
   pid_t pid = process_execute(cmd_line);
