@@ -599,7 +599,6 @@ setup_stack (void **esp, char *argument_buffer, int argcount)
         if (faulty_esp((uintptr_t) esp_iter, (uintptr_t) (PHYS_BASE - PGSIZE)))
           return -1;
 
-        // TODO check types!
         *int_esp_iter = (char*) (int_esp_iter + 1);
 
         /* write argc to stack */
