@@ -292,6 +292,7 @@ syscall_exit(const int exit_type){
   clear_files();
 
   printf("%s: exit(%d)\n", thread_current()->name, exit_type);
+
   thread_exit();
 }
 
