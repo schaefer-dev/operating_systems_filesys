@@ -21,6 +21,8 @@ static unsigned max_file_name = 14;
 
 void syscall_init (void);
 void validate_pointer(const void* pointer);
+void validate_buffer(const void* buffer, unsigned size);
+int validate_string(const char* buffer);
 void* read_argument_at_index(struct intr_frame *f, int arg_offset);
 void syscall_exit(const int exit_type);
 void syscall_halt(void);
@@ -62,7 +64,7 @@ syscall_handler (struct intr_frame *f UNUSED)
   // syscall type int is stored at adress esp
   int32_t syscall_type = *((int*)esp);
 
-  printf("SYSCALL: %i\n", syscall_type);
+  //printf("SYSCALL: %i\n", syscall_type);
 
   switch (syscall_type)
     {
@@ -182,31 +184,31 @@ syscall_handler (struct intr_frame *f UNUSED)
       }
 
     case SYS_MMAP:
-      // TODO project 3
+      // project 3
       break;
 
     case SYS_MUNMAP:
-      // TODO project 3
+      // project 3
       break;
 
     case SYS_CHDIR:
-      // TODO project 4
+      // project 4
       break;
 
     case SYS_MKDIR:
-      // TODO project 4
+      // project 4
       break;
 
     case SYS_READDIR:
-      // TODO project 4
+      // project 4
       break;
 
     case SYS_ISDIR:
-      // TODO project 4
+      // project 4
       break;
 
     case SYS_INUMBER:
-      // TODO project 4
+      // project 4
       break;
 
     default:
@@ -218,7 +220,6 @@ syscall_handler (struct intr_frame *f UNUSED)
 }
 
 
-//TODO: we need a new validate_buffer and validate_string to check 
 // that means we have to iterate
 /* calls syscall_exit(-1) if the passed pointer is not valid in the current 
    context */
@@ -252,7 +253,7 @@ validate_string(const char* buffer){
   char* buffer_iter = buffer;
   validate_pointer(buffer_iter);
   while (true){
-    if (buffer_iter == '\0')
+    if (*buffer_iter == '\0')
       break; 
       
     buffer_iter += 1;
