@@ -597,13 +597,13 @@ void syscall_close(int fd){
   struct list_elem *element = get_list_elem(fd);
 
   if (element == NULL){
-		lock_release(&lock_filesystem);
+    lock_release(&lock_filesystem);
     return;
   }
   struct file_entry *f = list_entry (element, struct file_entry, elem);
 
   if (f->file == NULL){
-		lock_release(&lock_filesystem);
+    lock_release(&lock_filesystem);
     return;
   }
 
