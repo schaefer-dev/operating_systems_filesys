@@ -723,7 +723,7 @@ void thread_terminate_child_setup(){
         lock_release(&f->child_process_lock);
         free(f);
       }else{
-        f->parent=NULL;
+        f->parent=-1;
         lock_release(&f->child_process_lock);
       }
   }
