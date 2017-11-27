@@ -19,6 +19,7 @@
 #include "threads/vaddr.h"
 #include "devices/timer.h"
 #include "threads/synch.h"
+#include "userprog/syscall.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp, char* argument_buffer, int argcount);
@@ -51,7 +52,7 @@ process_execute (const char *file_name)
   
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (command_name, PRI_DEFAULT, start_process, fn_copy);
-  // TODO think about freeing stuff
+
   palloc_free_page(file_name_copy);
   if (tid == TID_ERROR){
     palloc_free_page (fn_copy); 
@@ -68,10 +69,8 @@ start_process (void *file_name_)
   struct intr_frame if_;
   bool success;
 
-  // TODO: Introduce end of page to check if still inside?
   char *argument_page = palloc_get_page (PAL_ZERO | PAL_USER);
 
-  // TODO : think about this special case
   if (argument_page == NULL)
     thread_exit ();
 
@@ -79,20 +78,18 @@ start_process (void *file_name_)
 
   int argcount = 0;
 
-  // argument parsing using strtok_r
+  /* variables for tokenizing using strtok_r */
   char *token, *save_ptr;
 
-  // first token which is being read
   char *cmdline = "";
 
+  /* write all tokens split by space(s) to current_argument_space */
   for (token = strtok_r (file_name, " ", &save_ptr); token != NULL;
       token = strtok_r (NULL, " ", &save_ptr))
       {
         int tokensize = strlen(token);
-        //printf("TOKEN: |%s| of length %i should be written\n", token, tokensize);
         current_argument_space -= tokensize + 1;
         strlcpy(current_argument_space, token, tokensize + 1);
-        //printf("VALUE: |%s| was written\n", current_argument_space);
         if (strcmp(cmdline, ""))
           strlcpy(cmdline, token, tokensize + 1);
         argcount += 1;
@@ -107,18 +104,20 @@ start_process (void *file_name_)
 
   success = load (file_name, &if_.eip, &if_.esp, current_argument_space, argcount);
 
+  /* update the child process structure of this process */
   struct thread *child_thread = thread_current();
   struct child_process *child_process = child_thread->child_process;
 
   lock_acquire(&child_process->child_process_lock);
 
-  // set load value of child_process after load is finished
-  // TODO Lock Child
+  /* set load value of child_process after load is finished */
   if (success){
     child_process->successfully_loaded = LOAD_SUCCESS;
   } else {
     child_process->successfully_loaded = LOAD_FAILURE;
   }
+
+  /* signal parent that child process load has finished */
   cond_signal(&child_process->loaded, &child_process->child_process_lock);
 
   lock_release(&child_process->child_process_lock);
@@ -161,10 +160,10 @@ process_wait (pid_t child_tid)
   struct child_process *child = get_child(child_tid);
 
   if (child != NULL){
-    // case for matching child found
+    /* matching child was found */
     lock_acquire(&child->child_process_lock);
     
-    // check if this child_tid has already been waited for
+    /* check if this child_tid has already been waited for */
     if (child->waited_for){
       lock_release(&child->child_process_lock);
       return -1;
@@ -179,11 +178,11 @@ process_wait (pid_t child_tid)
       cond_wait(&child->terminated_cond, &child->child_process_lock); 
 
     if ((child->terminated) == false){
-      // Process has been terminated by kernel
+      /* Process has been terminated by kernel */
       lock_release(&child->child_process_lock);
       return -1;
-    } else{
-      // Process has terminated regularly
+    } else {
+      /* Process has terminated regularly */
       returnvalue = child->exit_status;
     }
 
@@ -191,7 +190,7 @@ process_wait (pid_t child_tid)
 
     lock_release(&child->child_process_lock);
   } else {
-    // no matching child found
+    /* no matching child were found */
     return -1;
   }
   return returnvalue;
@@ -204,8 +203,6 @@ process_exit (void)
   struct thread *cur = thread_current ();
   uint32_t *pd;
 
-  // TODO free child structure under this process
-  
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   pd = cur->pagedir;
@@ -330,6 +327,7 @@ load (const char *file_name, void (**eip) (void), void **esp, char* argument_buf
   process_activate ();
 
   /* Open executable file. */
+  lock_acquire(&lock_filesystem);
   file = filesys_open (file_name);
   if (file == NULL) 
     {
@@ -422,6 +420,7 @@ load (const char *file_name, void (**eip) (void), void **esp, char* argument_buf
   success = true;
 
  done:
+  lock_release(&lock_filesystem);
   /* We arrive here whether the load is successful or not. */
   return success;
 }
@@ -640,6 +639,9 @@ install_page (void *upage, void *kpage, bool writable)
           && pagedir_set_page (t->pagedir, upage, kpage, writable));
 }
 
+
+/* returns a the child with pid, or NULL if this child does
+   not exist for the currently running thread. */
 struct child_process*
 get_child(pid_t pid){
   struct thread *current_thread = thread_current();
@@ -653,7 +655,7 @@ get_child(pid_t pid){
   struct list_elem *iterator = list_head(child_list);
   struct child_process *child = NULL;
 
-  // search for matching child
+  /* search for matching child */
   while (iterator != list_tail(child_list)){
       child = list_entry(iterator, struct child_process, elem);
       if (child->pid == pid){

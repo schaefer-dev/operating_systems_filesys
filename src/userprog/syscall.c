@@ -41,7 +41,6 @@ unsigned syscall_tell(int fd);
 void syscall_close(int fd);
 struct list_elem* get_list_elem(int fd);
 
-struct lock lock_filesystem;
 
 void
 syscall_init (void) 
