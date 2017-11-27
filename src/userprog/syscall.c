@@ -275,7 +275,7 @@ syscall_exit(const int exit_type){
 
   if (terminating_child != NULL){
     lock_acquire(&terminating_child->child_process_lock);
-    if (terminating_child->parent != NULL){
+    if (terminating_child->parent != -1){
       /* parent is still running -> has to store information */
       terminating_child->terminated = true;
       terminating_child->exit_status = exit_type;
