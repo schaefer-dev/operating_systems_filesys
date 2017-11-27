@@ -41,21 +41,6 @@ struct list_elem* get_list_elem(int fd);
 
 struct lock lock_filesystem;
 
-// TODO:
-// save list of file descriptors in thread
-// save list of child processes in thread
-// save partent process in thread
-// struct child-thread which contains *thread, parent,
-
-// parse arguments in start_process and pass **arguments and num_arguments
-// to load and to setup_stack where the real work will be done
-// setup_stack setups stack like described in description
-
-// lock file system operations with lock in syscall.c
-// make sure to mark executables as "non writable" as explained in description
-// nicht nach stin und stout lesen
-// file descriptor table in thread as list 
-
 
 void
 syscall_init (void) 
@@ -67,7 +52,6 @@ syscall_init (void)
 static void
 syscall_handler (struct intr_frame *f UNUSED) 
 {
-  //printf("DEBUG: printS\n");
   if(f == NULL)
     syscall_exit(-1);
   void *esp = (int*) f->esp;
@@ -76,7 +60,6 @@ syscall_handler (struct intr_frame *f UNUSED)
 
   // syscall type int is stored at adress esp
   int32_t syscall_type = *((int*)esp);
-  //printf("DEBUG: print2 syscall_type: |%i|\n", syscall_type);
 
   switch (syscall_type)
     {
@@ -147,7 +130,6 @@ syscall_handler (struct intr_frame *f UNUSED)
 
     case SYS_FILESIZE:
       {
-        //printf("DEBUG: printFS\n");
         int fd = *((int*)read_argument_at_index(f,0)); 
         f->eax = syscall_filesize(fd);
         break;
@@ -155,14 +137,11 @@ syscall_handler (struct intr_frame *f UNUSED)
 
     case SYS_READ:
       {
-        //printf("DEBUG: printA\n");
         lock_acquire(&lock_filesystem);
         int fd = *((int*)read_argument_at_index(f,0)); 
         void *buffer = *((void**)read_argument_at_index(f,sizeof(int))); 
         unsigned size = *((unsigned*)read_argument_at_index(f,2*sizeof(int))); 
-        //printf("DEBUG: printB\n");
         int returnvalue = syscall_read(fd, buffer, size);
-        //printf("DEBUG: printZ\n");
         f->eax = returnvalue;
         lock_release(&lock_filesystem);
       }
@@ -170,14 +149,11 @@ syscall_handler (struct intr_frame *f UNUSED)
 
     case SYS_WRITE:
       {
-        //printf("DEBUG: printWRITE\n");
         lock_acquire(&lock_filesystem);
         int fd = *((int*)read_argument_at_index(f,0)); 
         void *buffer = *((void**)read_argument_at_index(f,sizeof(int))); 
         unsigned size = *((unsigned*)read_argument_at_index(f,2*sizeof(int))); 
-        //printf("DEBUG: printWRITE-Start\n");
         int returnvalue = syscall_write(fd, buffer, size);
-        //printf("DEBUG: printWRITE-Finish\n");
         f->eax = returnvalue;
         lock_release(&lock_filesystem);
         break;
@@ -383,7 +359,6 @@ syscall_halt(){
 
 tid_t
 syscall_exec(const char *cmd_line){
-  // TODO make sure to not change program which is running during runtime (see project description) -> set DENY_WRITE
 
   if (cmd_line == NULL){
     return -1;
@@ -392,7 +367,8 @@ syscall_exec(const char *cmd_line){
     return -1;
   }
 
-  // Validate end of passed string
+  // TODO validate every single pointer until end!
+  /* Validate end of passed string */
   int arg_length = strlen(cmd_line);
   char *cmd_line_end = cmd_line + arg_length + 1;
   validate_pointer(cmd_line_end);

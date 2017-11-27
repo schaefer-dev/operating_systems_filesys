@@ -8,9 +8,8 @@
 
 >> Fill in the names and email addresses of your group members.
 
-FirstName LastName <email@domain.example>
-FirstName LastName <email@domain.example>
-FirstName LastName <email@domain.example>
+Daniel Schaefer <s9dlscae@stud.uni-saaland.de>
+Christian Bohnenberger <s9cnbohn@stud.uni-saaland.de>
 
 ---- PRELIMINARIES ----
 
@@ -61,6 +60,7 @@ FirstName LastName <email@domain.example>
 
 >> B3: Describe your code for reading and writing user data from the
 >> kernel.
+Verify pointer etc. and write to file.
 
 >> B4: Suppose a system call causes a full page (4,096 bytes) of data
 >> to be copied from user space into the kernel.  What is the least

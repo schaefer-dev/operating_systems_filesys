@@ -4,6 +4,7 @@
 #include "userprog/gdt.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "threads/vaddr.h"
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
@@ -148,8 +149,13 @@ page_fault (struct intr_frame *f)
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
 
-  // notify parent about syscall
-  syscall_exit(-1);
+  /* notify parent about syscall */
+  // TODO check if user and page not user or if pointer null or if writing to read only page
+
+  uint32_t *pagedir = thread_current()->pagedir;
+  if (fault_addr == NULL || user && !is_user_vaddr(fault_addr) || pagedir_get_page(pagedir, fault_addr)==NULL || !not_present)
+    // Exit if pointer is not valid
+    syscall_exit(-1);
 
   /* To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to

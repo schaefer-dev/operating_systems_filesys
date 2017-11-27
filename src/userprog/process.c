@@ -23,8 +23,6 @@
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp, char* argument_buffer, int argcount);
 
-static bool DEBUG_ENABLED = false;
-
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
    before process_execute() returns.  Returns the new process's
@@ -107,24 +105,6 @@ start_process (void *file_name_)
         argcount += 1;
       }
 
-  // DEBUG CODE BEGIN ---------------------------------------------------------------
-  if (DEBUG_ENABLED){
-    if (file_name == NULL)
-      printf("file_name is NULL");
-
-    printf("executable name: |%s|\n", file_name);
-    printf("argcount value: %i\n", argcount);
-
-    printf("strlen of current_argument_space: %i\n", strlen(current_argument_space));
-    char* debug_iter = current_argument_space;
-    printf("arg1 |%s|\n", (char*)((debug_iter)));
-    printf("debug_iter arg1 length %i\n", strlen(debug_iter));
-    debug_iter = debug_iter + strlen(debug_iter) + 1;
-    printf("arg0 |%s|\n", (char*)((debug_iter)));
-    printf("debug_iter arg0 length %i\n", strlen(debug_iter));
-    debug_iter = debug_iter + strlen(debug_iter) + 1;
-  }
-  // DEBUG CODE END ---------------------------------------------------------------
 
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
@@ -140,6 +120,7 @@ start_process (void *file_name_)
   lock_acquire(&child_process->child_process_lock);
 
   // set load value of child_process after load is finished
+  // TODO Lock Child
   if (success){
     child_process->successfully_loaded = LOAD_SUCCESS;
   } else {
@@ -156,8 +137,6 @@ start_process (void *file_name_)
   if (!success) 
     thread_exit ();
   else
-    if (DEBUG_ENABLED)
-      printf("DEBUG: Load finished succesfully!\n");
 
 
   /* Start the user process by simulating a return from an
@@ -590,73 +569,33 @@ setup_stack (void **esp, char *argument_buffer, int argcount)
           strlcpy(esp_iter, argument_buffer, argument_size + 1);
           argument_adress_array[i] = esp_iter;
           argument_buffer += argument_size + 1;
-          //printf("DEBUG: |%p| arg written to stack: |%s|\n", esp_iter, esp_iter);
         } 
 
-        // writing word-align to stack;
-        // TODO try "uintptr_t" if it doesnt work
-        // TODO fill skipped with 0's
         esp_iter -= ((uintptr_t) esp_iter) % 4;
-        //printf("DEBUG: Written to stack: WORD_ALIGN\n");
 
         char **int_esp_iter = (char**) esp_iter;
 
         // terminating char pointer
         int_esp_iter -= 1;
         *int_esp_iter = 0;
-        //printf("DEBUG: |%p| Written to stack: |%i|\n", int_esp_iter, *int_esp_iter);
 
         // writing argument references to stack
         for (i = 0; i < argcount; i++){
           int_esp_iter -= 1;
           *int_esp_iter = argument_adress_array[i];
-          //printf("DEBUG: |%p| arg_reference written to stack: |%p|\n", int_esp_iter, *int_esp_iter);
         }
 
         // write argv reference to stack
         int_esp_iter -= 1;
         *int_esp_iter = int_esp_iter + 1;
-        //printf("DEBUG: |%p| Written to stack: |%p|\n", int_esp_iter, *int_esp_iter);
 
         // write argc to stack
         int_esp_iter -= 1;
         *int_esp_iter = argcount;
-        //printf("DEBUG: |%p| Written to stack: |%i|\n", int_esp_iter, *int_esp_iter);
 
         // write return adress to stack
         int_esp_iter -= 1;
         *int_esp_iter = 0;
-        //printf("DEBUG: |%p| Written to stack: |%i|\n", int_esp_iter, *int_esp_iter);
-
-        // DEBUG ENTIRE STACK PRINTING
-        if (DEBUG_ENABLED){
-          printf("\n----------------- STACK END -----------------------\n");
-          char** debug_printer = (char**)int_esp_iter;
-          printf("RET     %p: |%i|\n", debug_printer, *debug_printer);
-          debug_printer += 1;
-          printf("argc    %p: |%i|\n", debug_printer, *debug_printer);
-          debug_printer += 1;
-          printf("argv    %p: |%p|\n", debug_printer, *debug_printer);
-          debug_printer = (char*) *debug_printer;
-          printf("argv[0] %p: |%p|\n", debug_printer, *debug_printer);
-          char* arg0pointer = *debug_printer;
-          debug_printer += 1;
-          printf("argv[1] %p: |%p|\n", debug_printer, *debug_printer);
-          char* arg1pointer = *debug_printer;
-          debug_printer += 1;
-          printf("argv[2] %p: |%p|\n", debug_printer, *debug_printer);
-          debug_printer += 1;
-          printf("word-al %p\n", debug_printer);
-          unsigned debug_int_printer = (unsigned) debug_printer;
-          debug_int_printer += (unsigned) debug_int_printer % 4;
-          debug_printer = (char*) debug_int_printer;
-          printf("argv[0] %p: |%s|\n", arg0pointer, arg0pointer);
-          printf("argv[1] %p: |%s|\n", arg1pointer, arg1pointer);
-          int topPointer = arg1pointer + strlen(arg1pointer) + 1;
-          printf("TOP     %p\n", topPointer);
-          printf("----------------- STACK BEGIN -----------------------\n\n");
-          // DEBIG END ENTIRE STACK PRINTING
-        }
 
         *esp = int_esp_iter;
 
