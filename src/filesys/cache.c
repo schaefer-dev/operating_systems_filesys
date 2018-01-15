@@ -1,11 +1,19 @@
 #include "filesys/cache.h"
+#include "devices/timer.h"
+#include "devices/block.h"
+#include "threads/thread.h"
+#include "threads/synch.h"
+#include "threads/malloc.h"
+#include "filesys/filesys.h"
+#include <string.h>
 
 
 struct cache_block *filesys_cache_lookup(block_sector_t disk_sector);
 struct cache_block *filesys_cache_block_allocate(block_sector_t disk_sector, bool write_access);
-struct cache_block *filesys_cache_block_evict();
+struct cache_block *filesys_cache_block_evict(void);
 void filesys_cache_thread_read_ahead(block_sector_t disk_sector);
 void filesys_cache_periodic_writeback(void* aux UNUSED);
+struct cache_block *filesys_cache_access(block_sector_t disk_sector, bool write_access, bool recoursive);
 
 
 /* initializes cache structure */
@@ -46,11 +54,12 @@ filesys_cache_lookup(block_sector_t disk_sector) {
    ALWAYS CALL WITH RECOURSIVE=FALSE! */
 struct cache_block*
 filesys_cache_access(block_sector_t disk_sector, bool write_access, bool recoursive){
-  struct cache_block *lookup_cache_block = lookup_cache_block(disk_sector);
+  struct cache_block *lookup_cache_block = filesys_cache_lookup(disk_sector);
   if (lookup_cache_block == NULL){
     lookup_cache_block = filesys_cache_block_allocate(disk_sector, write_access);
+    lock_release(&lookup_cache_block->cache_block_lock);
   } else {
-    /* lookup has to hold the returned block cache */
+    /* lookup has to hold the returned block cache lock */
     ASSERT(lock_held_by_current_thread(&lookup_cache_block->cache_block_lock));
     lookup_cache_block->accessed = true;
     lookup_cache_block->accessed_counter += 1;
@@ -58,14 +67,59 @@ filesys_cache_access(block_sector_t disk_sector, bool write_access, bool recours
     lock_release(&lookup_cache_block->cache_block_lock);
   }
   if (!recoursive){
-    filesys_cache_thread_periodic_writeback(disk_sector + 1);
+    filesys_cache_thread_read_ahead(disk_sector + 1);
   }
   return lookup_cache_block;
 }
 
 
+/* read from disk starting at sector_offset chunk_size amount of bytes into buffer */
+void
+filesys_cache_read(block_sector_t disk_sector, void *buffer, off_t sector_offset, int chunk_size) {
+  struct cache_block *lookup_cache_block = filesys_cache_lookup(disk_sector);
+
+  if (lookup_cache_block == NULL) {
+    lookup_cache_block = filesys_cache_block_allocate(disk_sector, false);
+  } else {
+    lookup_cache_block->accessed_counter += 1;
+  }
+
+  /* lookup has to hold the returned block cache lock */
+  ASSERT(lock_held_by_current_thread(&lookup_cache_block->cache_block_lock));
+  lookup_cache_block->accessed = true;
+  memcpy(buffer, lookup_cache_block->cached_content + sector_offset, chunk_size);
+  lock_release(&lookup_cache_block->cache_block_lock);
+
+  // read ahead
+  filesys_cache_thread_read_ahead(disk_sector + 1);
+}
+
+
+/* read from disk starting at sector_offset chunk_size amount of bytes into buffer */
+void
+filesys_cache_write(block_sector_t disk_sector, void *buffer, off_t sector_offset, int chunk_size) {
+  struct cache_block *lookup_cache_block = filesys_cache_lookup(disk_sector);
+
+  if (lookup_cache_block == NULL) {
+    lookup_cache_block = filesys_cache_block_allocate(disk_sector, false);
+  } else {
+    lookup_cache_block->accessed_counter += 1;
+  }
+
+  /* lookup has to hold the returned block cache lock */
+  ASSERT(lock_held_by_current_thread(&lookup_cache_block->cache_block_lock));
+  lookup_cache_block->accessed = true;
+  lookup_cache_block->dirty = true;
+  memcpy(lookup_cache_block->cached_content + sector_offset, buffer, chunk_size);
+  lock_release(&lookup_cache_block->cache_block_lock);
+
+  // read ahead
+  filesys_cache_thread_read_ahead(disk_sector + 1);
+}
+
+
 /* allocate new cache for disk_sector, which might call eviction to instead replace a
-   currently cached sector */
+   currently cached sector holds cache_block lock afterwards*/
 struct cache_block*
 filesys_cache_block_allocate(block_sector_t disk_sector, bool write_access) {
 
@@ -80,11 +134,13 @@ filesys_cache_block_allocate(block_sector_t disk_sector, bool write_access) {
     new_cache_block->accessed_counter = 0;
     lock_init(&new_cache_block->cache_block_lock);
     /* write content of disk_sector to cached_content array */
-    block_read(fs_device, disk_sector, new_cache_block->content);
+    block_read(fs_device, disk_sector, new_cache_block->cached_content);
 
     cache_array[next_free_cache] = new_cache_block;
     next_free_cache += 1;
     lock_release(&filesys_cache_lock);
+    lock_acquire(&new_cache_block->cache_block_lock);
+    return new_cache_block;
 
   } else {
     /* case for eviction */
@@ -97,9 +153,8 @@ filesys_cache_block_allocate(block_sector_t disk_sector, bool write_access) {
     replace_cache_block->disk_sector = disk_sector;
     replace_cache_block->accessed_counter = 0;
     /* write content of disk_sector to cached_content array */
-    block_read(fs_device, disk_sector, replace_cache_block->content);
-
-    lock_release(&replace_cache_block->cache_block_lock);
+    block_read(fs_device, disk_sector, replace_cache_block->cached_content);
+    return replace_cache_block;
   }
 }
 
@@ -108,7 +163,7 @@ filesys_cache_block_allocate(block_sector_t disk_sector, bool write_access) {
 struct cache_block*
 filesys_cache_block_evict() {
   while(true) {
-    struct cache_block *iter_cache_block;
+    struct cache_block *iter_cache_block = cache_array[next_evict_cache];
     lock_acquire(&iter_cache_block->cache_block_lock);
     if (iter_cache_block->accessed) {
       iter_cache_block->accessed = false;
@@ -117,7 +172,7 @@ filesys_cache_block_evict() {
       next_evict_cache = (next_evict_cache + 1) % CACHE_SIZE;
     } else {
       if (iter_cache_block->dirty)
-        block_write(fs_device, iter_cache_block->disk_sector, iter_cache_block->content);
+        block_write(fs_device, iter_cache_block->disk_sector, iter_cache_block->cached_content);
       next_evict_cache = (next_evict_cache + 1) % CACHE_SIZE;
       return iter_cache_block;
     }
@@ -153,7 +208,7 @@ filesys_cache_writeback() {
     lock_acquire(&iterator_block->cache_block_lock);
 
     if (iterator_block->dirty){ 
-      block_write(fs_device, iterator_block->disk_sector, iterator_block->content);
+      block_write(fs_device, iterator_block->disk_sector, iterator_block->cached_content);
       iterator_block->dirty = false;
     }
 
@@ -163,6 +218,8 @@ filesys_cache_writeback() {
 }
 
 
+/* function which is executed by asynchronous thread and causes a call of
+   filesys_cache_writeback every WRITE_BACK_INTERVAL milliseconds */
 void filesys_cache_periodic_writeback(void* aux UNUSED) {
   while (true) {
     timer_msleep(WRITE_BACK_INTERVAL);
