@@ -85,7 +85,7 @@ filesys_cache_access(block_sector_t disk_sector, bool write_access, bool recours
 /* read from disk starting at sector_offset chunk_size amount of bytes into buffer */
 void
 filesys_cache_read(block_sector_t disk_sector, void *buffer, off_t sector_offset, int chunk_size) {
-  printf("DEBUG: read cache BEGIN\n");
+  printf("DEBUG: read cache at sektor %i and offset %i with chunk_size %i BEGIN\n", disk_sector, sector_offset, chunk_size);
   struct cache_block *lookup_cache_block = filesys_cache_lookup(disk_sector);
 
   if (lookup_cache_block == NULL) {
@@ -110,7 +110,7 @@ filesys_cache_read(block_sector_t disk_sector, void *buffer, off_t sector_offset
 /* read from disk starting at sector_offset chunk_size amount of bytes into buffer */
 void
 filesys_cache_write(block_sector_t disk_sector, void *buffer, off_t sector_offset, int chunk_size) {
-  printf("DEBUG: write cache BEGIN\n");
+  printf("DEBUG: write cache into sector %i at offset %i with chunk_size %i BEGIN\n", disk_sector, sector_offset, chunk_size);
   struct cache_block *lookup_cache_block = filesys_cache_lookup(disk_sector);
 
   if (lookup_cache_block == NULL) {
