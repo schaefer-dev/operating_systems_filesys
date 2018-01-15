@@ -31,9 +31,7 @@ int next_evict_cache;
 
 
 void filesys_cache_init();
-struct cache_block filesys_cache_lookup(block_sector_t disk_sector);
-struct cache_block *filesys_cache_block_allocate(block_sector_t disk_sector);
-void filesys_cache_writeback();
-
+struct cache_block *filesys_cache_access(block_sector_t disk_sector, bool write_access);
+void filesys_cache_writeback(void);
 
 #endif
