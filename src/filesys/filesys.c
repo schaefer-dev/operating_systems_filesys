@@ -24,15 +24,15 @@ filesys_init (bool format)
     PANIC ("No file system device found, can't initialize file system.");
 
   inode_init ();
+
   free_map_init ();
+
+  filesys_cache_init();
 
   if (format) 
     do_format ();
 
   free_map_open ();
-
-  filesys_cache_init();
-
 }
 
 /* Shuts down the file system module, writing any unwritten data

@@ -5,6 +5,7 @@
 #include "threads/synch.h"
 #include "threads/malloc.h"
 #include "filesys/filesys.h"
+#include <stdio.h>
 #include <string.h>
 
 
@@ -19,6 +20,7 @@ struct cache_block *filesys_cache_access(block_sector_t disk_sector, bool write_
 /* initializes cache structure */
 void
 filesys_cache_init(){
+  //printf("DEBUG: init executed\n");
   int i = 0;
   for (i = 0; i < CACHE_SIZE; i++) {
     cache_array[i] = NULL;
@@ -26,8 +28,9 @@ filesys_cache_init(){
 
   lock_init(&filesys_cache_lock);
   next_free_cache = 0;
+  //printf("DEBUG: init terminated\n");
 
-  thread_create("periodic_writeback", 0, filesys_cache_periodic_writeback , NULL);
+  //thread_create("periodic_writeback", 0, filesys_cache_periodic_writeback , NULL);
 }
 
 
@@ -36,13 +39,17 @@ filesys_cache_init(){
 struct cache_block*
 filesys_cache_lookup(block_sector_t disk_sector) {
   // TODO think about synchronization, cache block might have changed after lookup
+  //printf("DEBUG: start lookup\n");
   int i = 0;
-  for (i = 0; i < CACHE_SIZE; i++) 
-    if (cache_array[i] != NULL) 
+  for (i = 0; i < CACHE_SIZE; i++) {
+    //printf("DEBUG: iter\n");
+    if (cache_array[i] != NULL) {
       lock_acquire(&cache_array[i]->cache_block_lock);
       if (cache_array[i]->disk_sector == disk_sector)
         return cache_array[i];
       lock_release(&cache_array[i]->cache_block_lock);
+    }
+  }
 
   return NULL;
 }
@@ -66,9 +73,11 @@ filesys_cache_access(block_sector_t disk_sector, bool write_access, bool recours
     lookup_cache_block->dirty |= write_access;
     lock_release(&lookup_cache_block->cache_block_lock);
   }
-  if (!recoursive){
-    filesys_cache_thread_read_ahead(disk_sector + 1);
-  }
+
+  // TODO enable read ahead!
+  //if (!recoursive){
+  //  filesys_cache_thread_read_ahead(disk_sector + 1);
+  //}
   return lookup_cache_block;
 }
 
@@ -76,6 +85,7 @@ filesys_cache_access(block_sector_t disk_sector, bool write_access, bool recours
 /* read from disk starting at sector_offset chunk_size amount of bytes into buffer */
 void
 filesys_cache_read(block_sector_t disk_sector, void *buffer, off_t sector_offset, int chunk_size) {
+  printf("DEBUG: read cache BEGIN\n");
   struct cache_block *lookup_cache_block = filesys_cache_lookup(disk_sector);
 
   if (lookup_cache_block == NULL) {
@@ -87,34 +97,44 @@ filesys_cache_read(block_sector_t disk_sector, void *buffer, off_t sector_offset
   /* lookup has to hold the returned block cache lock */
   ASSERT(lock_held_by_current_thread(&lookup_cache_block->cache_block_lock));
   lookup_cache_block->accessed = true;
-  memcpy(buffer, lookup_cache_block->cached_content + sector_offset, chunk_size);
+  memcpy(buffer, (uint8_t *) &lookup_cache_block->cached_content + sector_offset, chunk_size);
   lock_release(&lookup_cache_block->cache_block_lock);
+  printf("DEBUG: read cache END \n");
 
+  // TODO enable read ahead!
   // read ahead
-  filesys_cache_thread_read_ahead(disk_sector + 1);
+  //filesys_cache_thread_read_ahead(disk_sector + 1);
 }
 
 
 /* read from disk starting at sector_offset chunk_size amount of bytes into buffer */
 void
 filesys_cache_write(block_sector_t disk_sector, void *buffer, off_t sector_offset, int chunk_size) {
+  printf("DEBUG: write cache BEGIN\n");
   struct cache_block *lookup_cache_block = filesys_cache_lookup(disk_sector);
 
   if (lookup_cache_block == NULL) {
+    //printf("DEBUG: write cache step 2\n");
     lookup_cache_block = filesys_cache_block_allocate(disk_sector, false);
+    //printf("DEBUG: write cache step 3\n");
   } else {
     lookup_cache_block->accessed_counter += 1;
   }
+  
+  //printf("DEBUG: write cache step 4\n");
 
   /* lookup has to hold the returned block cache lock */
   ASSERT(lock_held_by_current_thread(&lookup_cache_block->cache_block_lock));
+  ASSERT(lookup_cache_block->disk_sector == disk_sector);
   lookup_cache_block->accessed = true;
   lookup_cache_block->dirty = true;
-  memcpy(lookup_cache_block->cached_content + sector_offset, buffer, chunk_size);
+  memcpy((uint8_t *) &lookup_cache_block->cached_content + sector_offset, buffer, chunk_size);
   lock_release(&lookup_cache_block->cache_block_lock);
+  printf("DEBUG: write cache END\n");
 
+  // TODO enable read ahead!
   // read ahead
-  filesys_cache_thread_read_ahead(disk_sector + 1);
+  //filesys_cache_thread_read_ahead(disk_sector + 1);
 }
 
 
@@ -172,7 +192,7 @@ filesys_cache_block_evict() {
       next_evict_cache = (next_evict_cache + 1) % CACHE_SIZE;
     } else {
       if (iter_cache_block->dirty)
-        block_write(fs_device, iter_cache_block->disk_sector, iter_cache_block->cached_content);
+        block_write(fs_device, iter_cache_block->disk_sector, &iter_cache_block->cached_content);
       next_evict_cache = (next_evict_cache + 1) % CACHE_SIZE;
       return iter_cache_block;
     }
@@ -183,15 +203,17 @@ filesys_cache_block_evict() {
 void
 filesys_cache_read_ahead(void *aux) {
   // TODO maybe we have to pass sector using a reference to sector instead!
-  block_sector_t sector = (block_sector_t) aux;
+  block_sector_t sector = *( (block_sector_t*) aux);
   filesys_cache_access(sector, false, true);
+  free (aux);
 }
 
 
 /* create thread which reads ahead asynchronously */
 void
 filesys_cache_thread_read_ahead (block_sector_t disk_sector) {
-  void *aux = (void *) disk_sector;
+  void *aux = malloc(sizeof(block_sector_t));
+  aux = disk_sector;
   thread_create("async_read_ahead", 0, filesys_cache_read_ahead, aux);
 }
 
@@ -200,6 +222,7 @@ filesys_cache_thread_read_ahead (block_sector_t disk_sector) {
    evict to avoid slowdown caused by locking iteratively over array */
 void
 filesys_cache_writeback() {
+  printf("DEBUG writeback BEGIN\n");
   int iterator = next_free_cache;
 
   while (iterator != 0) {
@@ -208,13 +231,14 @@ filesys_cache_writeback() {
     lock_acquire(&iterator_block->cache_block_lock);
 
     if (iterator_block->dirty){ 
-      block_write(fs_device, iterator_block->disk_sector, iterator_block->cached_content);
+      block_write(fs_device, iterator_block->disk_sector, &iterator_block->cached_content);
       iterator_block->dirty = false;
     }
 
     lock_release(&iterator_block->cache_block_lock);
     iterator -= 1;
   }
+  printf("DEBUG writeback END\n");
 }
 
 
