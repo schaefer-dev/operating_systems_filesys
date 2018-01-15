@@ -6,6 +6,8 @@
 #include "filesys/free-map.h"
 #include "filesys/inode.h"
 #include "filesys/directory.h"
+#include "filesys/cache.h"
+#include "filesys/off_t.h"
 
 /* Partition that contains the file system. */
 struct block *fs_device;
@@ -28,6 +30,9 @@ filesys_init (bool format)
     do_format ();
 
   free_map_open ();
+
+  filesys_cache_init();
+
 }
 
 /* Shuts down the file system module, writing any unwritten data
@@ -36,6 +41,8 @@ void
 filesys_done (void) 
 {
   free_map_close ();
+
+  filesys_cache_writeback();
 }
 
 /* Creates a file named NAME with the given INITIAL_SIZE.
