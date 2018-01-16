@@ -103,7 +103,7 @@ filesys_cache_read(block_sector_t disk_sector, void *buffer, off_t sector_offset
 
   // TODO enable read ahead!
   // read ahead
-  //filesys_cache_thread_read_ahead(disk_sector + 1);
+  filesys_cache_thread_read_ahead(disk_sector + 1);
 }
 
 
@@ -134,7 +134,7 @@ filesys_cache_write(block_sector_t disk_sector, void *buffer, off_t sector_offse
 
   // TODO enable read ahead!
   // read ahead
-  //filesys_cache_thread_read_ahead(disk_sector + 1);
+  filesys_cache_thread_read_ahead(disk_sector + 1);
 }
 
 
@@ -212,8 +212,8 @@ filesys_cache_read_ahead(void *aux) {
 /* create thread which reads ahead asynchronously */
 void
 filesys_cache_thread_read_ahead (block_sector_t disk_sector) {
-  void *aux = malloc(sizeof(block_sector_t));
-  aux = disk_sector;
+  block_sector_t *aux = malloc(sizeof(block_sector_t));
+  *aux = disk_sector;
   thread_create("async_read_ahead", 0, filesys_cache_read_ahead, aux);
 }
 
