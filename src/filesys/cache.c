@@ -223,7 +223,7 @@ filesys_cache_thread_read_ahead (block_sector_t disk_sector) {
 void
 filesys_cache_writeback() {
   //printf("DEBUG writeback BEGIN\n");
-  int iterator = next_free_cache-1;
+  int iterator = next_free_cache - 1;
 
   while (iterator != 0) {
     printf("DEBUG writeback iter\n");
@@ -233,7 +233,7 @@ filesys_cache_writeback() {
     //}
     //printf("DEBUG writeback step1\n");
     
-    //lock_acquire(&iterator_block->cache_block_lock);
+    lock_acquire(&iterator_block->cache_block_lock);
     //printf("DEBUG writeback step2\n");
 
     if (iterator_block->dirty){
@@ -244,7 +244,7 @@ filesys_cache_writeback() {
       //printf("DEBUG writeback step5\n");
     }
 
-    //:qlock_release(&iterator_block->cache_block_lock);
+    lock_release(&iterator_block->cache_block_lock);
     iterator -= 1;
   }
   //printf("DEBUG writeback END\n");
