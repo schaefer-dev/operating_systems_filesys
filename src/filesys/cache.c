@@ -30,7 +30,7 @@ filesys_cache_init(){
   next_free_cache = 0;
   //printf("DEBUG: init terminated\n");
 
-  //thread_create("periodic_writeback", 0, filesys_cache_periodic_writeback , NULL);
+  thread_create("periodic_writeback", 0, filesys_cache_periodic_writeback , NULL);
 }
 
 
@@ -226,7 +226,7 @@ filesys_cache_writeback() {
   int iterator = next_free_cache - 1;
 
   while (iterator != 0) {
-    printf("DEBUG writeback iter\n");
+    //printf("DEBUG writeback iter\n");
     struct cache_block *iterator_block = cache_array[iterator];
     //if (iterator_block==NULL){
 	//printf("DEBUG writeback entry null\n");
