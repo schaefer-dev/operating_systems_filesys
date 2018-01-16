@@ -37,7 +37,8 @@ struct inode
     int open_cnt;                       /* Number of openers. */
     bool removed;                       /* True if deleted, false otherwise. */
     int deny_write_cnt;                 /* 0: writes ok, >0: deny writes. */
-    struct inode_disk data;             /* Inode content. */
+    block_sector_t data_block;          /* first sector for inode content */
+    off_t data_length;                  /* length of the file in bytes */
   };
 
 /* Returns the block device sector that contains byte offset POS
@@ -48,8 +49,8 @@ static block_sector_t
 byte_to_sector (const struct inode *inode, off_t pos) 
 {
   ASSERT (inode != NULL);
-  if (pos < inode->data.length)
-    return inode->data.start + pos / BLOCK_SECTOR_SIZE;
+  if (pos < inode->data_length)
+    return inode->data_block + pos / BLOCK_SECTOR_SIZE;
   else
     return -1;
 }
@@ -138,7 +139,13 @@ inode_open (block_sector_t sector)
   inode->open_cnt = 1;
   inode->deny_write_cnt = 0;
   inode->removed = false;
-  block_read (fs_device, inode->sector, &inode->data);
+
+  // TODO dummy inode_disk should probably be removed later
+  struct inode_disk data;
+  block_read (fs_device, inode->sector, &data);
+  inode->data_block = data.start;
+  inode->data_length = data.length;
+
   return inode;
 }
 
@@ -178,8 +185,8 @@ inode_close (struct inode *inode)
       if (inode->removed) 
         {
           free_map_release (inode->sector, 1);
-          free_map_release (inode->data.start,
-                            bytes_to_sectors (inode->data.length)); 
+          free_map_release (inode->data_block,
+                            bytes_to_sectors (inode->data_length)); 
         }
 
       free (inode); 
@@ -203,7 +210,6 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
 {
   uint8_t *buffer = buffer_;
   off_t bytes_read = 0;
-  uint8_t *bounce = NULL;
 
   while (size > 0) 
     {
@@ -248,7 +254,6 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
       offset += chunk_size;
       bytes_read += chunk_size;
     }
-  free (bounce);
 
   return bytes_read;
 }
@@ -346,7 +351,7 @@ inode_allow_write (struct inode *inode)
 
 /* Returns the length, in bytes, of INODE's data. */
 off_t
-inode_length (const struct inode *inode)
+inode_length (struct inode *inode)
 {
-  return inode->data.length;
+  return inode->data_length;
 }
