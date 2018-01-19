@@ -15,7 +15,8 @@
 static block_sector_t byte_to_sector_indirect (const struct inode *inode, off_t pos);
 static block_sector_t byte_to_sector_double_indirect (const struct inode *inode, off_t pos);
 
-static inline size_t number_of_direct_sectors (off_t size);
+static inline size_t number_of_sectors (off_t size);
+static size_t number_of_direct_sectors (off_t size);
 static size_t number_of_indirect_sectors (off_t size);
 static size_t number_of_double_indirect_sectors (off_t size);
 
@@ -42,6 +43,31 @@ inode_allocate (struct inode_disk *inode_disk)
   size_t number_indirect_sectors = number_of_indirect_sectors(disk_inode->length);
   size_t number_double_indirect_sectors = number_of_double_indirect_sectors(disk_inode->length);
 
+  // TODO make sure this is actually initialized with zero bytes
+  char zero_sector[BLOCK_SECTOR_SIZE]; 
+  int current_index = 0;
+  bool success = true;
+
+  while (number_direct_sectors > 0 && current_index < INDEX_INDIRECT_BLOCKS) {
+    success = free_map_allocate (1, &inode_disk->block_pointers[index]);
+    block_write(fs_device, inode_disk->block_pointers[current_index], zero_sector);
+    current_index += 1;
+    number_direct_sectors -= 1;
+  }
+
+  while (number_indirect_sectors > 0 && current_index < INDEX_DOUBLE_INDIRECT_BLOCKS) {
+    inode_allocate_indirect_sectors(inode_disk->block_pointers[current_index], number_indirect_sectors);
+    current_index += 1;
+  }
+
+
+  return success;
+}
+
+void
+inode_allocate_indirect_sectors(struct indirect_block indirect_block, size_t number_indirect_sectors){
+
+  NUMBER_INDIRECT_sectors -= 1;
 
 }
 
@@ -53,13 +79,25 @@ inode_deallocate (struct inode *inode)
 
 }
 
-
 /* Returns the number of sectors to allocate for an inode SIZE
    bytes long. */
 static inline size_t
-number_of_direct_sectors (off_t size)
+number_of_sectors (off_t size)
 {
   return DIV_ROUND_UP (size, BLOCK_SECTOR_SIZE);
+}
+
+
+/* returns the number of direct sectors */
+static size_t
+number_of_direct_sectors (off_t size)
+{
+  size_t setors = number_of_sectors(size);
+
+  if (sectors > NUMBER_DIRECT_BLOCKS)
+    return NUMBER_DIRECT_BLOCKS;
+  else
+    return sectors;
 }
 
 
@@ -67,12 +105,18 @@ number_of_direct_sectors (off_t size)
 static size_t
 number_of_indirect_sectors (off_t size)
 {
-  if (size <= NUMBER_DIRECT_BLOCKS * BLOCK_SECTOR_SIZE)
+  if (size < NUMBER_DIRECT_BLOCKS * BLOCK_SECTOR_SIZE)
     return 0;
 
   size = size - NUMBER_DIRECT_BLOCKS * BLOCK_SECTOR_SIZE;
 
-  return DIV_ROUND_UP (size, BLOCK_SECTOR_SIZE * NUMBER_INDIRECT_POINTERS);
+  size_t number_indirect_sectors = DIV_ROUND_UP (size, BLOCK_SECTOR_SIZE * NUMBER_INDIRECT_POINTERS);
+
+  if (number_indirect_sectors > NUMBER_INDIRECT_BLOCKS)
+    return NUMBER_INDIRECT_BLOCKS;
+  else
+    return number_indirect_sectors;
+  return 
 }
 
 
@@ -80,7 +124,9 @@ number_of_indirect_sectors (off_t size)
 static size_t
 number_of_double_indirect_sectors (off_t size)
 {
-  if (size <= NUMBER_DIRECT_BLOCKS * BLOCK_SECTOR_SIZE)
+  // TODO assert for over maximum size
+
+  if (size < NUMBER_DIRECT_BLOCKS * BLOCK_SECTOR_SIZE + NUMBER_INDIRECT_BLOCKS * NUMBER_INDIRECT_POINTERS * BLOCK_SECTOR_SIZE)
     return 0;
 
   return 1;
