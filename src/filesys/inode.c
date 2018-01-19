@@ -54,9 +54,9 @@ inode_deallocate (struct inode *inode)
     current_index += 1;
   }
 
-  inode_deallocate_indirect_sectors(&inode->block_pointers, current_index, num_of_sectors);
+  inode_deallocate_indirect_sectors(inode->block_pointers, current_index, num_of_sectors);
 
-  inode_deallocate_double_indirect_sectors(&inode->block_pointers, current_index, num_of_sectors);
+  inode_deallocate_double_indirect_sectors(inode->block_pointers, current_index, num_of_sectors);
 }
 
 void
@@ -113,13 +113,13 @@ inode_allocate (struct inode_disk *inode_disk)
     success = free_map_allocate (1, &inode_disk->block_pointers[current_index]);
     block_write(fs_device, inode_disk->block_pointers[current_index], zero_sector);
     num_direct_sectors -= 1;
-    num_sectors -= 1;
+    num_of_sectors -= 1;
     current_index += 1;
   }
 
-  success = inode_allocate_indirect_sectors(&inode_disk->block_pointers, current_index, num_of_sectors);
+  success = inode_allocate_indirect_sectors(inode_disk->block_pointers, current_index, num_of_sectors);
 
-  success = inode_allocate_double_indirect_sectors(&inode_disk->block_pointers, current_index, num_of_sectors);
+  success = inode_allocate_double_indirect_sectors(inode_disk->block_pointers, current_index, num_of_sectors);
 
   return success;
 }
@@ -129,6 +129,7 @@ inode_allocate (struct inode_disk *inode_disk)
 bool
 inode_allocate_indirect_sectors(uint32_t *block_pointers, int current_index, size_t num_of_sectors)
 {
+  bool success = true;
 
   while (num_of_sectors > 0 && current_index < INDEX_DOUBLE_INDIRECT_BLOCKS) {
     int max_iterator = 0;
@@ -142,9 +143,8 @@ inode_allocate_indirect_sectors(uint32_t *block_pointers, int current_index, siz
       max_iterator = num_of_sectors;
 
     char zero_sector[BLOCK_SECTOR_SIZE];
-    bool success = true;
 
-    success = free_map_allocate (1, (block_sector_t *)block_pointers[current_index]);
+    success = free_map_allocate (1, &block_pointers[current_index]);
 
     for (iterator = 0; iterator < max_iterator; iterator++) {
       success = free_map_allocate (1, &indirect_block.block_pointers[iterator]);
@@ -152,7 +152,7 @@ inode_allocate_indirect_sectors(uint32_t *block_pointers, int current_index, siz
       num_of_sectors -= 1;
     }
 
-    block_write(fs_device, *block_pointers[current_index], &indirect_block);
+    block_write(fs_device, block_pointers[current_index], &indirect_block);
     current_index += 1;
   }
 
@@ -167,13 +167,6 @@ inode_allocate_double_indirect_sectors(uint32_t *block_pointers, int current_ind
 }
 
 
-void
-inode_deallocate (struct inode *inode)
-{
-  // TODO
-
-}
-
 /* Returns the number of sectors to allocate for an inode SIZE
    bytes long. */
 size_t
@@ -187,7 +180,7 @@ number_of_sectors (off_t size)
 size_t
 number_of_direct_sectors (off_t size)
 {
-  size_t setors = number_of_sectors(size);
+  size_t sectors = number_of_sectors(size);
 
   if (sectors > NUMBER_DIRECT_BLOCKS)
     return NUMBER_DIRECT_BLOCKS;
@@ -277,7 +270,7 @@ byte_to_sector_indirect (const struct inode *inode, off_t pos)
   /* set indirect_pos to array index */
   indirect_pos = indirect_pos % (NUMBER_INDIRECT_POINTERS * BLOCK_SECTOR_SIZE);
 
-  return temporary_indirect_block[indirect_pos / BLOCK_SECTOR_SIZE]
+  return temporary_indirect_block[indirect_pos / BLOCK_SECTOR_SIZE];
 }
 
 
@@ -333,7 +326,7 @@ inode_create (block_sector_t sector, off_t length)
 
       disk_inode->magic = INODE_MAGIC;
 
-      if (inode_allocate (disk_inode) 
+      if (inode_allocate (disk_inode))
         {
           block_write (fs_device, sector, disk_inode);
           success = true; 
