@@ -2,6 +2,7 @@
 #define FILESYS_INODE_H
 
 #include <stdbool.h>
+#include <list.h>
 #include "filesys/off_t.h"
 #include "devices/block.h"
 
@@ -50,7 +51,7 @@
 struct indirect_block
   {
     block_sector_t block_pointers[NUMBER_INDIRECT_POINTERS];
-  }
+  };
 
 
 struct bitmap;
