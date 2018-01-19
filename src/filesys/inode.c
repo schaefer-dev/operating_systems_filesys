@@ -11,15 +11,10 @@
 /* Identifies an inode. */
 #define INODE_MAGIC 0x494e4f44
 
-/* On-disk inode.
-   Must be exactly BLOCK_SECTOR_SIZE bytes long. */
-struct inode_disk
-  {
-    block_sector_t start;               /* First data sector. */
-    off_t length;                       /* File size in bytes. */
-    unsigned magic;                     /* Magic number. */
-    uint32_t unused[125];               /* Not used. */
-  };
+
+static block_sector_t byte_to_sector_indirect (const struct inode *inode, off_t pos);
+static block_sector_t byte_to_sector_double_indirect (const struct inode *inode, off_t pos);
+
 
 /* Returns the number of sectors to allocate for an inode SIZE
    bytes long. */
@@ -29,18 +24,6 @@ bytes_to_sectors (off_t size)
   return DIV_ROUND_UP (size, BLOCK_SECTOR_SIZE);
 }
 
-/* In-memory inode. */
-struct inode 
-  {
-    struct list_elem elem;              /* Element in inode list. */
-    block_sector_t sector;              /* Sector number of disk location. */
-    int open_cnt;                       /* Number of openers. */
-    bool removed;                       /* True if deleted, false otherwise. */
-    int deny_write_cnt;                 /* 0: writes ok, >0: deny writes. */
-    block_sector_t data_block;          /* first sector for inode content */
-    off_t data_length;                  /* length of the file in bytes */
-  };
-
 /* Returns the block device sector that contains byte offset POS
    within INODE.
    Returns -1 if INODE does not contain data for a byte at offset
@@ -49,11 +32,77 @@ static block_sector_t
 byte_to_sector (const struct inode *inode, off_t pos) 
 {
   ASSERT (inode != NULL);
-  if (pos < inode->data_length)
-    return inode->data_block + pos / BLOCK_SECTOR_SIZE;
-  else
+
+  if (pos >= inode->data_length)
     return -1;
+
+  uint32_t index;
+
+  /* check inside direct blocks */
+  if (pos < DIRECT_BLOCKS_END) {
+    index = (pos / BLOCK_SECTOR_SIZE);
+    return inode->block_pointers[index];
+  }
+
+  /* check inside indirect blocks */
+  if (pos < INDIRECT_BLOCKS_END) {
+    return byte_to_sector_indirect(inode, pos);
+  }
+
+  /* check inside double indirect blocks */
+  if (pos < DOUBLE_INDIRECT_BLOCKS_END) {
+    return byte_to_sector_double_indirect(inode, pos);
+  } else {
+    // TODO -1 the correct illegal sector?
+    return -1;
+  }
 }
+
+
+/* return the block sector from indirect block */
+static block_sector_t
+byte_to_sector_indirect (const struct inode *inode, off_t pos)
+{
+  uint32_t temporary_indirect_block[NUMBER_INDIRECT_POINTERS];
+  uint32_t index;
+
+  off_t indirect_pos = pos - (NUMBER_DIRECT_BLOCKS * BLOCK_SECTOR_SIZE);
+  index = INDEX_INDIRECT_BLOCKS + (indirect_pos / (NUMBER_INDIRECT_POINTERS * BLOCK_SECTOR_SIZE));
+
+  /* read the indirect block into temporary representation */
+  block_read(fs_device, inode->block_pointers[index], &temporary_indirect_block);
+
+  /* set indirect_pos to array index */
+  indirect_pos = indirect_pos % (NUMBER_INDIRECT_POINTERS * BLOCK_SECTOR_SIZE);
+
+  return temporary_indirect_block[indirect_pos / BLOCK_SECTOR_SIZE]
+}
+
+
+/* return the block sector from double indirect block */
+static block_sector_t
+byte_to_sector_double_indirect (const struct inode *inode, off_t pos)
+{
+  uint32_t temporary_double_indirect_block[NUMBER_INDIRECT_POINTERS];
+  uint32_t temporary_indirect_block[NUMBER_INDIRECT_POINTERS];
+
+  /* read the double indirect block into temporary representation */
+  block_read(fs_device, inode->block_pointers[INDEX_DOUBLE_INDIRECT_BLOCKS], &temporary_double_indirect_block);
+
+  off_t double_indirect_pos = pos - (NUMBER_DIRECT_BLOCKS * BLOCK_SECTOR_SIZE)
+    - (NUMBER_INDIRECT_BLOCKS * NUMBER_INDIRECT_POINTERS * BLOCK_SECTOR_SIZE);
+
+  uint32_t first_index = double_indirect_pos / (BLOCK_SECTOR_SIZE * NUMBER_INDIRECT_POINTERS);
+
+  /* read the correct indirect block into temporary representation */
+  block_read(fs_device, temporary_double_indirect_block[first_index], &temporary_indirect_block);
+
+  /* set indirect_pos to array index */
+  uint32_t indirect_pos = indirect_pos % (NUMBER_INDIRECT_POINTERS * BLOCK_SECTOR_SIZE);
+
+  return temporary_indirect_block[indirect_pos / BLOCK_SECTOR_SIZE];
+}
+
 
 /* List of open inodes, so that opening a single inode twice
    returns the same `struct inode'. */
@@ -65,6 +114,7 @@ inode_init (void)
 {
   list_init (&open_inodes);
 }
+
 
 /* Initializes an inode with LENGTH bytes of data and
    writes the new inode to sector SECTOR on the file system

@@ -5,7 +5,81 @@
 #include "filesys/off_t.h"
 #include "devices/block.h"
 
+/* 125 unused pointers.
+   as many direct pointers as possible while still supporting 8MB File. 
+   DIRECT   INDIRECT    DOUBLE-INDIRECT
+   (123)  + (1 * 128) + (128 * 128 * 1) = 16.635 sectors
+
+   512 bytes per sector -> 8.517.120 bytes */
+
+/* MAX FILESIZE =
+        ( NUMBER_DIRECT_BLOCKS
+          + NUMBER_INDIRECT_BLOCKS * NUMBER_INDIRECT_POINTERS
+          + NUMBER_DOUBLE_INDIRECT_BLOCKS * NUMBER_INDIRECT_POINTERS * NUMBER_INDIRECT_POINTERS
+        ) * BLOCK_SECTOR_SIZE   */
+
+
+/* number of direct/indirect/double-indirect blocks */
+#define NUMBER_DIRECT_BLOCKS 123
+#define NUMBER_INDIRECT_BLOCKS 1
+#define NUMBER_DOUBLE_INDIRECT_BLOCKS 1
+
+/* overall number of pointers in inode */
+#define NUMBER_INODE_POINTERS (NUMBER_DIRECT_BLOCKS + NUMBER_INDIRECT_BLOCKS + NUMBER_DOUBLE_INDIRECT_BLOCKS)
+
+/* number of pointers contained in a indirect block */
+#define NUMBER_INDIRECT_POINTERS 128
+
+
+/* last byte which is contained in respective sector category */
+#define DIRECT_BLOCKS_END (NUMBER_DIRECT_BLOCKS * BLOCK_SECTOR_SIZE)
+#define INDIRECT_BLOCKS_END ((NUMBER_DIRECT_BLOCKS + NUMBER_INDIRECT_BLOCKS * NUMBER_INDIRECT_POINTERS) * BLOCK_SECTOR_SIZE)
+#define DOUBLE_INDIRECT_BLOCKS_END ((NUMBER_DIRECT_BLOCKS + NUMBER_INDIRECT_BLOCKS * NUMBER_INDIRECT_POINTERS + NUMBER_DOUBLE_INDIRECT_BLOCKS * NUMBER_INDIRECT_POINTERS * NUMBER_INDIRECT_POINTERS) * BLOCK_SECTOR_SIZE)
+
+
+/* indices to work on the block_pointers array */
+#define INDEX_DIRECT_BLOCKS 0
+#define INDEX_INDIRECT_BLOCKS 123
+#define INDEX_DOUBLE_INDIRECT_BLOCKS 124
+
+#define MAX_FILESIZE ((NUMBER_DIRECT_BLOCKS + NUMBER_INDIRECT_BLOCKS * NUMBER_INDIRECT_POINTERS + NUMBER_DOUBLE_INDIRECT_BLOCKS * NUMBER_INDIRECT_POINTERS * NUMBER_INDIRECT_POINTERS) * BLOCK_SECTOR_SIZE)
+
+
+/* struct which describes indirect_block which contains NUMBER_INDIRECT_POINTERS
+   amount of pointers */
+struct indirect_block
+  {
+    block_sector_t block_pointers[NUMBER_INDIRECT_POINTERS];
+  }
+
+
 struct bitmap;
+
+/* On-disk inode.
+   Must be exactly BLOCK_SECTOR_SIZE bytes long. */
+struct inode_disk
+  {
+    off_t length;                       /* File size in bytes. */
+    unsigned magic;                     /* Magic number. */
+    uint32_t unused[1];                 /* not used */
+    /* pointers to blocks with file content: */
+    uint32_t block_pointers[NUMBER_INODE_POINTERS];               
+  };
+
+
+/* In-memory inode. */
+struct inode 
+  {
+    struct list_elem elem;              /* Element in inode list. */
+    block_sector_t sector;              /* Sector number of disk location. */
+    int open_cnt;                       /* Number of openers. */
+    bool removed;                       /* True if deleted, false otherwise. */
+    int deny_write_cnt;                 /* 0: writes ok, >0: deny writes. */
+    off_t data_length;                  /* length of the file in bytes */
+    /* pointers to blocks with file content: */
+    uint32_t block_pointers[NUMBER_INODE_POINTERS];               
+  };
+
 
 void inode_init (void);
 bool inode_create (block_sector_t, off_t);
