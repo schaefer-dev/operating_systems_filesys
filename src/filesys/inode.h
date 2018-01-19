@@ -82,6 +82,10 @@ struct inode
 
 
 void inode_init (void);
+
+bool inode_allocate (struct inode_disk *inode_disk);
+void inode_deallocate (struct inode *inode);
+
 bool inode_create (block_sector_t, off_t);
 struct inode *inode_open (block_sector_t);
 struct inode *inode_reopen (struct inode *);
