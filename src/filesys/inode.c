@@ -34,13 +34,70 @@ inode_init (void)
   list_init (&open_inodes);
 }
 
+void
+inode_deallocate (struct inode *inode)
+{
+  size_t number_of_sectors = number_of_sectors(disk_inode->length);
+  size_t number_direct_sectors = number_of_direct_sectors(disk_inode->length);
+  size_t number_double_indirect_sectors = number_of_double_indirect_sectors(disk_inode->length);
+
+  int current_index = 0;
+
+  while (number_direct_sectors > 0 && current_index < INDEX_INDIRECT_BLOCKS) {
+    free_map_release (inode->block_pointers[current_index], 1);
+    number_direct_sectors -= 1;
+    number_of_sectors -= 1;
+    current_index += 1;
+  }
+
+  inode_deallocate_indirect_sectors(&inode->block_pointers, current_index, number_of_sectors);
+
+  inode_deallocate_double_indirect_sectors(&inode->block_pointers, current_index, number_of_sectors);
+}
+
+void
+inode_deallocate_indirect_sectors(uint32_t *block_pointers, int current_index, size_t number_of_sectors)
+{
+  while (number_of_sectors > 0 && current_index < INDEX_DOUBLE_INDIRECT_BLOCKS) {
+    int max_iterator = 0;
+    int iterator = 0;
+
+    struct indirect_block indirect_block;
+
+    if (number_of_sectors > NUMBER_INDIRECT_POINTERS)
+      max_iterator = NUMBER_INDIRECT_POINTERS;
+    else
+      max_iterator = number_of_sectors;
+
+    block_read(fs_device, block_pointers[current_index], &indirect_block);
+
+    for (iterator = 0; iterator < max_iterator; iterator++) {
+      free_map_release (&indirect_block.block_pointers[iterator], 1);
+      number_of_sectors -= 1;
+    }
+
+    free_map_release (block_pointers[current_index], 1);
+
+    current_index += 1;
+  }
+}
+
+
+void
+inode_deallocate_double_indirect_sectors(uint32_t *block_pointers, int current_index, size_t number_of_sectors)
+{
+  // TODO implement
+  return;
+}
+
 
 bool
 inode_allocate (struct inode_disk *inode_disk)
 {
   // TODO 
+  size_t number_of_sectors = number_of_sectors(disk_inode->length);
   size_t number_direct_sectors = number_of_direct_sectors(disk_inode->length);
-  size_t number_indirect_sectors = number_of_indirect_sectors(disk_inode->length);
+  //UNUSED NOW: size_t number_indirect_sectors = number_of_indirect_sectors(disk_inode->length);
   size_t number_double_indirect_sectors = number_of_double_indirect_sectors(disk_inode->length);
 
   // TODO make sure this is actually initialized with zero bytes
@@ -51,24 +108,58 @@ inode_allocate (struct inode_disk *inode_disk)
   while (number_direct_sectors > 0 && current_index < INDEX_INDIRECT_BLOCKS) {
     success = free_map_allocate (1, &inode_disk->block_pointers[index]);
     block_write(fs_device, inode_disk->block_pointers[current_index], zero_sector);
-    current_index += 1;
     number_direct_sectors -= 1;
-  }
-
-  while (number_indirect_sectors > 0 && current_index < INDEX_DOUBLE_INDIRECT_BLOCKS) {
-    inode_allocate_indirect_sectors(inode_disk->block_pointers[current_index], number_indirect_sectors);
+    number_sectors -= 1;
     current_index += 1;
   }
 
+  success = inode_allocate_indirect_sectors(&inode_disk->block_pointers, current_index, number_of_sectors);
+
+  success = inode_allocate_double_indirect_sectors(&inode_disk->block_pointers, current_index, number_indirect_sectors);
 
   return success;
 }
 
-void
-inode_allocate_indirect_sectors(struct indirect_block indirect_block, size_t number_indirect_sectors){
 
-  NUMBER_INDIRECT_sectors -= 1;
+/* TODO maybe refactor this because the call in allocate is not very nice with condition checking */
+bool
+inode_allocate_indirect_sectors(uint32_t *block_pointers, int current_index, size_t number_of_sectors)
+{
 
+  while (number_of_sectors > 0 && current_index < INDEX_DOUBLE_INDIRECT_BLOCKS) {
+    int max_iterator = 0;
+    int iterator = 0;
+
+    struct indirect_block indirect_block;
+
+    if (number_of_sectors > NUMBER_INDIRECT_POINTERS)
+      max_iterator = NUMBER_INDIRECT_POINTERS;
+    else
+      max_iterator = number_of_sectors;
+
+    char zero_sector[BLOCK_SECTOR_SIZE];
+    bool success = true;
+
+    success = free_map_allocate (1, block_pointers[current_index]);
+
+    for (iterator = 0; iterator < max_iterator; iterator++) {
+      success = free_map_allocate (1, &indirect_block.block_pointers[iterator]);
+      block_write(fs_device, indirect_block.block_pointers[iterator], zero_sector);
+      number_of_sectors -= 1;
+    }
+
+    block_write(fs_device, *block_pointers[current_index], &indirect_block);
+    current_index += 1;
+  }
+
+  return success;
+}
+
+
+bool
+inode_allocate_double_indirect_sectors(uint32_t *block_pointers, int current_index, size_t number_of_sectors){
+  // TODO implement
+  return true;
 }
 
 
@@ -116,7 +207,6 @@ number_of_indirect_sectors (off_t size)
     return NUMBER_INDIRECT_BLOCKS;
   else
     return number_indirect_sectors;
-  return 
 }
 
 
