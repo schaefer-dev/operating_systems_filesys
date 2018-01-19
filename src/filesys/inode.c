@@ -15,6 +15,11 @@
 static block_sector_t byte_to_sector_indirect (const struct inode *inode, off_t pos);
 static block_sector_t byte_to_sector_double_indirect (const struct inode *inode, off_t pos);
 
+static inline size_t number_of_direct_sectors (off_t size);
+static size_t number_of_indirect_sectors (off_t size);
+static size_t number_of_double_indirect_sectors (off_t size);
+
+// TODO rename bytes_to_sectors etc. names, very missleading!!
 
 
 /* List of open inodes, so that opening a single inode twice
@@ -33,6 +38,10 @@ bool
 inode_allocate (struct inode_disk *inode_disk)
 {
   // TODO 
+  size_t number_direct_sectors = number_of_direct_sectors(disk_inode->length);
+  size_t number_indirect_sectors = number_of_indirect_sectors(disk_inode->length);
+  size_t number_double_indirect_sectors = number_of_double_indirect_sectors(disk_inode->length);
+
 
 }
 
@@ -48,9 +57,33 @@ inode_deallocate (struct inode *inode)
 /* Returns the number of sectors to allocate for an inode SIZE
    bytes long. */
 static inline size_t
-bytes_to_sectors (off_t size)
+number_of_direct_sectors (off_t size)
 {
   return DIV_ROUND_UP (size, BLOCK_SECTOR_SIZE);
+}
+
+
+/* already support for multiple indirect sectors */
+static size_t
+number_of_indirect_sectors (off_t size)
+{
+  if (size <= NUMBER_DIRECT_BLOCKS * BLOCK_SECTOR_SIZE)
+    return 0;
+
+  size = size - NUMBER_DIRECT_BLOCKS * BLOCK_SECTOR_SIZE;
+
+  return DIV_ROUND_UP (size, BLOCK_SECTOR_SIZE * NUMBER_INDIRECT_POINTERS);
+}
+
+
+/* ONLY SUPPORT FOR ONE double indirect sector !!! */
+static size_t
+number_of_double_indirect_sectors (off_t size)
+{
+  if (size <= NUMBER_DIRECT_BLOCKS * BLOCK_SECTOR_SIZE)
+    return 0;
+
+  return 1;
 }
 
 /* Returns the block device sector that contains byte offset POS

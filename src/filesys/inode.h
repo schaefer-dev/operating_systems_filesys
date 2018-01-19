@@ -61,7 +61,7 @@ struct inode_disk
   {
     off_t length;                       /* File size in bytes. */
     unsigned magic;                     /* Magic number. */
-    uint32_t unused[1];                 /* not used */
+    bool directory;
     /* pointers to blocks with file content: */
     uint32_t block_pointers[NUMBER_INODE_POINTERS];               
   };
