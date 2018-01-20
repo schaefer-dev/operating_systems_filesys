@@ -305,6 +305,8 @@ thread_exit (void)
 
   struct thread *current_thread = thread_current();
 
+  clear_files();
+
 #ifdef USERPROG
   process_exit ();
   if (current_thread->executable != NULL){
@@ -760,4 +762,32 @@ struct child_process* add_child(pid_t child_pid, pid_t parent_pid){
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
+
+
+/* clears all open files in current thread */
+void
+clear_files(){
+  //printf("DEBUG: Clear files start\n");
+  struct thread *t = thread_current();
+  struct list *open_files = &(t->file_list);
+
+  if (list_empty(open_files)){
+      //printf("DEBUG: Clear files empty -> end\n");
+      return;
+  }
+
+  struct list_elem *iterator = list_begin (open_files);
+
+  while (iterator != list_end (open_files)){
+      struct file_entry *f = list_entry (iterator, struct file_entry, elem);
+      if (f->file != NULL){
+        file_close(f->file);
+      }
+      struct list_elem *removeElem = iterator; 
+      iterator = list_next(iterator);
+      list_remove (removeElem);
+      free(f);
+  }
+  //printf("DEBUG: Clear files end\n");
+}
 

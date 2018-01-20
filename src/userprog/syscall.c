@@ -285,9 +285,6 @@ syscall_exit(const int exit_type){
     }
   }
 
-  /* close all files in this thread and free ressources */
-  clear_files();
-
   printf("%s: exit(%d)\n", thread_current()->name, exit_type);
 
   thread_exit();
@@ -503,30 +500,6 @@ get_file(int fd){
   }
   return NULL;
 }
-
-/* clears all open files in current thread */
-void
-clear_files(){
-  struct thread *t = thread_current();
-  struct list *open_files = &(t->file_list);
-
-  if (list_empty(open_files))
-      return;
-
-  struct list_elem *iterator = list_begin (open_files);
-
-  while (iterator != list_end (open_files)){
-      struct file_entry *f = list_entry (iterator, struct file_entry, elem);
-      if (f->file != NULL){
-        file_close(f->file);
-      }
-      struct list_elem *removeElem = iterator; 
-      iterator = list_next(iterator);
-      list_remove (removeElem);
-      free(f);
-  }
-}
-
 
 /* searchs the file in current thread and returns list_elem */
 struct list_elem*

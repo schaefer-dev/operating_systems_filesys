@@ -21,7 +21,7 @@
 
 
 /* number of direct/indirect/double-indirect blocks */
-#define NUMBER_DIRECT_BLOCKS 123
+#define NUMBER_DIRECT_BLOCKS 113
 #define NUMBER_INDIRECT_BLOCKS 1
 #define NUMBER_DOUBLE_INDIRECT_BLOCKS 1
 
@@ -40,8 +40,8 @@
 
 /* indices to work on the block_pointers array */
 #define INDEX_DIRECT_BLOCKS 0
-#define INDEX_INDIRECT_BLOCKS 123
-#define INDEX_DOUBLE_INDIRECT_BLOCKS 124
+#define INDEX_INDIRECT_BLOCKS 113
+#define INDEX_DOUBLE_INDIRECT_BLOCKS 114
 
 #define MAX_FILESIZE ((NUMBER_DIRECT_BLOCKS + NUMBER_INDIRECT_BLOCKS * NUMBER_INDIRECT_POINTERS + NUMBER_DOUBLE_INDIRECT_BLOCKS * NUMBER_INDIRECT_POINTERS * NUMBER_INDIRECT_POINTERS) * BLOCK_SECTOR_SIZE)
 
@@ -63,6 +63,7 @@ struct inode_disk
     off_t length;                       /* File size in bytes. */
     unsigned magic;                     /* Magic number. */
     bool directory;
+    uint32_t unused[10];                /* not used */
     /* pointers to blocks with file content: */
     uint32_t block_pointers[NUMBER_INODE_POINTERS];               
   };
@@ -77,6 +78,7 @@ struct inode
     bool removed;                       /* True if deleted, false otherwise. */
     int deny_write_cnt;                 /* 0: writes ok, >0: deny writes. */
     off_t data_length;                  /* length of the file in bytes */
+    bool directory;
     /* pointers to blocks with file content: */
     uint32_t block_pointers[NUMBER_INODE_POINTERS];               
   };
