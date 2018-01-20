@@ -21,8 +21,8 @@ size_t number_of_indirect_sectors (off_t size);
 size_t number_of_double_indirect_sectors (off_t size);
 
 
-bool inode_allocate_indirect_sectors(uint32_t *block_pointers, int current_index, size_t *num_of_sectors);
-bool inode_allocate_double_indirect_sectors(uint32_t *block_pointers, int current_index, size_t *num_of_sectors);
+bool inode_allocate_indirect_sectors(block_sector_t *sectors, size_t max_iterator);
+bool inode_allocate_double_indirect_sectors(block_sector_t *sectors, size_t num_of_sectors);
 
 void inode_deallocate_indirect_sectors(uint32_t *block_pointers, int current_index, size_t *num_of_sectors);
 void inode_deallocate_double_indirect_sectors(uint32_t *block_pointers, int current_index, size_t *num_of_sectors);
@@ -62,9 +62,22 @@ inode_allocate (struct inode_disk *inode_disk)
     current_index += 1;
   }
 
-  success &= inode_allocate_indirect_sectors(inode_disk->block_pointers, current_index, &num_of_sectors);
+  while (num_of_sectors > 0 && current_index < INDEX_DOUBLE_INDIRECT_BLOCKS) {
+    int max_iterator = 0;
+    if (num_of_sectors > NUMBER_INDIRECT_POINTERS)
+      max_iterator = NUMBER_INDIRECT_POINTERS;
+    else
+      max_iterator = num_of_sectors;
 
-  success &= inode_allocate_double_indirect_sectors(inode_disk->block_pointers, current_index, &num_of_sectors);
+      success &= inode_allocate_indirect_sectors(&inode_disk->block_pointers[current_index], max_iterator);
+
+      num_of_sectors -= max_iterator;
+      current_index += 1;
+  }
+
+  if (num_double_indirect_sectors > 0) {
+    success &= inode_allocate_double_indirect_sectors(inode_disk->block_pointers[current_index], num_of_sectors);
+  }
 
   return success;
 }
@@ -72,34 +85,22 @@ inode_allocate (struct inode_disk *inode_disk)
 
 /* TODO maybe refactor this because the call in allocate is not very nice with condition checking */
 bool
-inode_allocate_indirect_sectors(uint32_t *block_pointers, int current_index, size_t *num_of_sectors)
+inode_allocate_indirect_sectors(block_sector_t *sectors, size_t max_iterator)
 {
   bool success = true;
+  int iterator = 0;
+  struct indirect_block indirect_block;
 
-  while (*num_of_sectors > 0 && current_index < INDEX_DOUBLE_INDIRECT_BLOCKS) {
-    int max_iterator = 0;
-    int iterator = 0;
+  char zero_sector[BLOCK_SECTOR_SIZE];
 
-    struct indirect_block indirect_block;
+  success &= free_map_allocate (1, sectors);
 
-    if (*num_of_sectors > NUMBER_INDIRECT_POINTERS)
-      max_iterator = NUMBER_INDIRECT_POINTERS;
-    else
-      max_iterator = *num_of_sectors;
-
-    char zero_sector[BLOCK_SECTOR_SIZE];
-
-    success &= free_map_allocate (1, &block_pointers[current_index]);
-
-    for (iterator = 0; iterator < max_iterator; iterator++) {
-      success &= free_map_allocate (1, &indirect_block.block_pointers[iterator]);
-      block_write(fs_device, indirect_block.block_pointers[iterator], zero_sector);
-      *num_of_sectors -= 1;
-    }
-
-    block_write(fs_device, block_pointers[current_index], &indirect_block);
-    current_index += 1;
+  for (iterator = 0; iterator < max_iterator; iterator++) {
+    success &= free_map_allocate (1, &indirect_block.block_pointers[iterator]);
+    block_write(fs_device, indirect_block.block_pointers[iterator], zero_sector);
   }
+
+  block_write(fs_device, *sectors, &indirect_block);
 
   return success;
 }
@@ -108,49 +109,34 @@ inode_allocate_indirect_sectors(uint32_t *block_pointers, int current_index, siz
 /* ONLY SUPPORT FOR ONE DOUBLE INDIRECT SECTOR! */
 /* TODO might still be broken!!! */
 bool
-inode_allocate_double_indirect_sectors(uint32_t *block_pointers, int current_index, size_t *num_of_sectors)
+inode_allocate_double_indirect_sectors(block_sector_t *sectors, size_t num_of_sectors)
 {
+  ASSERT(num_of_sectors > 0);
 
-  if (*num_of_sectors == 0)
-    return;
-                       
-  ASSERT(current_index == INDEX_DOUBLE_INDIRECT_BLOCKS);
   bool success = true;
+  int iterator = 0;
+  struct indirect_block double_indirect_block;
 
   char zero_sector[BLOCK_SECTOR_SIZE];
 
-  uint32_t indirect_blocks = block_pointers[current_index];
+  success &= free_map_allocate (1, sectors);
 
-  struct indirect_block double_indirect_block;
 
-  success &= free_map_allocate (1, &indirect_blocks);
-
-  int indirect_iter = 0;
-
+  // TODO catch case for to large
   while (number_of_sectors > 0) {
     int max_iterator = 0;
-    int iterator = 0;
-
-    struct indirect_block indirect_block;
-
-    if (*num_of_sectors > NUMBER_INDIRECT_POINTERS)
+    if (num_of_sectors > NUMBER_INDIRECT_POINTERS)
       max_iterator = NUMBER_INDIRECT_POINTERS;
     else
-      max_iterator = *num_of_sectors;
+      max_iterator = num_of_sectors;
 
-    //success &= free_map_allocate (1, &double_indirect_block.block_pointers[iterator]);
+    inode_allocate_indirect_sectors(&double_indirect_block.block_pointers[iterator], max_iterator); 
+    num_of_sectors -= max_iterator;
 
-    for (iterator = 0; iterator < max_iterator; iterator++) {
-      success &= free_map_allocate (1, &indirect_block.block_pointers[iterator]);
-      block_write(fs_device, indirect_block.block_pointers[iterator], zero_sector);
-      *num_of_sectors -= 1;
-    }
-
-    block_write(fs_device, double_indirect_block.block_pointers[indirect_iter], &indirect_block);
-    indirect_iter += 1;
+    iterator += 1;
   }
 
-  block_write(fs_device, block_pointers[current_index], &double_indirect_block);
+  block_write(fs_device, *sectors, &double_indirect_block);
 
   return success;
 }
