@@ -152,8 +152,6 @@ bool inode_grow(struct inode *inode, off_t size, off_t offset){
   // compute how many sectors are already used
   size_t num_of_used_sectors = number_of_sectors(length);
 
-  size_t num_of_indirect_sectors = number_of_indirect_sectors(length);
-
   size_t num_double_indirect_sectors = number_of_double_indirect_sectors(length);
 
   off_t new_size = size+offset;
@@ -180,21 +178,43 @@ bool inode_grow(struct inode *inode, off_t size, off_t offset){
       num_of_add_sectors -= 1;
       current_index += 1;
       num_of_used_sectors += 1;
+      length += BLOCK_SECTOR_SIZE;
     }
   }
 
   if (num_of_used_sectors >= INDEX_INDIRECT_BLOCKS && num_double_indirect_sectors == 0){
     // we have to calculate the indirect sector and the offset within the sector
+    size_t num_of_indirect_sectors = number_of_indirect_sectors(length);
     if (number_indirect_sectors != 0){
       current_index = number_indirect_sectors;
-      // TODO: calculate index_offset
+      // TODO: check if calculate of index_offset is correct
+      index_offset = num_of_used_sectors - (NUMBER_DIRECT_BLOCKS + num_indirect_sectors * NUMBER_INDIRECT_POINTERS);
+    } 
+    // start while-loop index_offset only in first indirect sector needed
+    int indirect_iterator = 0;
+    while (num_of_add_sectors > 0 && current_index < INDEX_DOUBLE_INDIRECT_BLOCKS) {
+    size_t max_iterator = 0;
+    if (num_of_sectors > NUMBER_INDIRECT_POINTERS)
+      max_iterator = NUMBER_INDIRECT_POINTERS;
+    else
+      max_iterator = num_of_add_sectors;
+
+      if (indirect_iterator == 0){
+        success &= inode_allocate_indirect_sectors(&inode_disk->block_pointers[current_index], max_iterator, index_offset);
+      } else {
+        success &= inode_allocate_indirect_sectors(&inode_disk->block_pointers[current_index], max_iterator, 0);
+      }
+      
+      num_of_add_sectors -= max_iterator;
+      length += (max_iterator * BLOCK_SECTOR_SIZE);
+      current_index += 1;
+      indirect_iterator += 1;
     }
-    // TODO: start while-loop index_offset only in first indirect sector needed
   }
 
   // TODO: add double indirect code
 
-  inode->length = offset + size;
+  inode->length = length;
   return success;
 }
 
