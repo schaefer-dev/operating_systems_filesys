@@ -3,7 +3,6 @@
 
 void syscall_init (void);
 void validate_pointer(const void* pointer);
-void clear_files(void);
 
 void syscall_exit(const int exit_type);
 

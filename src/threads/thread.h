@@ -178,4 +178,6 @@ void thread_terminate_child_setup(void);
 
 struct thread* get_thread(tid_t);
 
+void clear_files(void);
+
 #endif /* threads/thread.h */
