@@ -5,6 +5,7 @@
 #include <list.h>
 #include "filesys/off_t.h"
 #include "devices/block.h"
+#include "threads/synch.h"
 
 /* 125 unused pointers.
    as many direct pointers as possible while still supporting 8MB File. 
@@ -79,6 +80,8 @@ struct inode
     int deny_write_cnt;                 /* 0: writes ok, >0: deny writes. */
     off_t data_length;                  /* length of the file in bytes */
     bool directory;
+
+    struct lock inode_extend_lock;
     /* pointers to blocks with file content: */
     uint32_t block_pointers[NUMBER_INODE_POINTERS];               
   };

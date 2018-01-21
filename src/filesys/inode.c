@@ -528,6 +528,7 @@ inode_open (block_sector_t sector)
   inode->open_cnt = 1;
   inode->deny_write_cnt = 0;
   inode->removed = false;
+  lock_init(&inode->inode_extend_lock);
 
   /* read inode from disk into disk_data */
   struct inode_disk disk_data;
@@ -582,7 +583,7 @@ inode_close (struct inode *inode)
           inode_deallocate(inode);
         }
       else
-        {
+        { 
           /* write back to disk */
           struct inode_disk inode_disk;
           inode_disk.length = inode->data_length;
@@ -677,13 +678,15 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
                 off_t offset) 
 {
 
-  /* TODO: insert inode_grow
+  // TODO: insert inode_grow
   if (size + offset > inode->data_length){
     //TODO: require lock
+    lock_acquire(&inode->inode_extend_lock);
     inode_grow (inode, size, offset);
+    lock_release(&inode->inode_extend_lock);
     //TODO: release lock
   }
-  */
+  //
   const uint8_t *buffer = buffer_;
   off_t bytes_written = 0;
   uint8_t *bounce = NULL;
