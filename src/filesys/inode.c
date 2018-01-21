@@ -157,6 +157,7 @@ inode_allocate_double_indirect_sectors(block_sector_t *sectors, size_t num_of_se
 
 bool inode_grow(struct inode *inode, off_t size, off_t offset){
   // TODO: assert lock is already hold 
+  char zero_sector[BLOCK_SECTOR_SIZE];
   off_t length = inode->data_length;
   // compute how many sectors are already used
   size_t num_of_used_sectors = number_of_sectors(length);
@@ -225,7 +226,7 @@ bool inode_grow(struct inode *inode, off_t size, off_t offset){
 
   if (num_of_add_sectors > 0){
     inode_allocate_double_indirect_sectors(inode->block_pointers[current_index], num_of_add_sectors, index_double_indirect , index_indirect);
-    length += number_of_add_sectors * BLOCK_SECTOR_SIZE;
+    length += num_of_add_sectors * BLOCK_SECTOR_SIZE;
   }
 
   inode->data_length = length;
@@ -358,7 +359,7 @@ size_t compute_index_double_indirect (off_t size){
 }
 
 size_t compute_index_indirect_from_double (off_t size){
-  size_t index = index_in_double_indirect_sector (size);
+  size_t index = compute_index_double_indirect (size);
   size = size - NUMBER_DIRECT_BLOCKS + NUMBER_INDIRECT_BLOCKS * NUMBER_INDIRECT_POINTERS + index * NUMBER_INDIRECT_POINTERS * NUMBER_INDIRECT_POINTERS;
 
   return number_of_sectors(size);
