@@ -453,7 +453,7 @@ byte_to_sector_double_indirect (const struct inode *inode, off_t pos)
   block_read(fs_device, temporary_double_indirect_block[first_index], &temporary_indirect_block);
 
   /* set indirect_pos to array index */
-  uint32_t indirect_pos = indirect_pos % (NUMBER_INDIRECT_POINTERS * BLOCK_SECTOR_SIZE);
+  off_t indirect_pos = double_indirect_pos % (NUMBER_INDIRECT_POINTERS * BLOCK_SECTOR_SIZE);
 
   return temporary_indirect_block[indirect_pos / BLOCK_SECTOR_SIZE];
 }
