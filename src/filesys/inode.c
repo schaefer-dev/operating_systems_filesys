@@ -196,7 +196,7 @@ bool inode_grow(struct inode *inode, off_t size, off_t offset){
     // we have to calculate the indirect sector and the offset within the sector
     size_t start_sector = number_of_indirect_sectors(length);
     if (start_sector != 0){
-      current_index = start_sector;
+      current_index = start_sector + NUMBER_DIRECT_BLOCKS;
     } 
     index_offset = num_of_used_sectors - (NUMBER_DIRECT_BLOCKS + start_sector * NUMBER_INDIRECT_POINTERS);
     // start while-loop index_offset only in first indirect sector needed
