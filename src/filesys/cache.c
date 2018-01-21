@@ -74,10 +74,9 @@ filesys_cache_access(block_sector_t disk_sector, bool write_access, bool recours
     lock_release(&lookup_cache_block->cache_block_lock);
   }
 
-  // TODO enable read ahead!
-  //if (!recoursive){
-  //  filesys_cache_thread_read_ahead(disk_sector + 1);
-  //}
+  if (!recoursive){
+    //filesys_cache_thread_read_ahead(disk_sector + 1);
+  }
   return lookup_cache_block;
 }
 
@@ -101,9 +100,8 @@ filesys_cache_read(block_sector_t disk_sector, void *buffer, off_t sector_offset
   lock_release(&lookup_cache_block->cache_block_lock);
   //printf("DEBUG: read cache END \n");
 
-  // TODO enable read ahead!
   // read ahead
-  filesys_cache_thread_read_ahead(disk_sector + 1);
+  //filesys_cache_thread_read_ahead(disk_sector + 1);
 }
 
 
@@ -132,9 +130,8 @@ filesys_cache_write(block_sector_t disk_sector, void *buffer, off_t sector_offse
   lock_release(&lookup_cache_block->cache_block_lock);
   //printf("DEBUG: write cache END\n");
 
-  // TODO enable read ahead!
   // read ahead
-  filesys_cache_thread_read_ahead(disk_sector + 1);
+  //filesys_cache_thread_read_ahead(disk_sector + 1);
 }
 
 
@@ -202,7 +199,6 @@ filesys_cache_block_evict() {
 /* function used by thread to read ahead */
 void
 filesys_cache_read_ahead(void *aux) {
-  // TODO maybe we have to pass sector using a reference to sector instead!
   block_sector_t sector = *( (block_sector_t*) aux);
   filesys_cache_access(sector, false, true);
   free (aux);
