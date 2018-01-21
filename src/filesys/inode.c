@@ -19,11 +19,14 @@ size_t number_of_sectors (off_t size);
 size_t number_of_direct_sectors (off_t size);
 size_t number_of_indirect_sectors (off_t size);
 size_t number_of_double_indirect_sectors (off_t size);
+size_t index_in_double_indirect_sector (off_t size);
+size_t index_indirect_sector_double_indirect (off_t size);
+
 
 
 bool inode_allocate_indirect_sectors(block_sector_t *sectors, size_t max_iterator,
  size_t start_iterator);
-bool inode_allocate_double_indirect_sectors(block_sector_t *sectors, size_t num_of_sectors);
+bool inode_allocate_double_indirect_sectors(block_sector_t *sectors, size_t num_of_sectors, size_t start_sector, size_t offset);
 
 void inode_deallocate_indirect_sectors(block_sector_t *sectors, size_t max_iterator);
 void inode_deallocate_double_indirect_sectors(block_sector_t *sectors, size_t num_of_sectors);
@@ -79,7 +82,7 @@ inode_allocate (struct inode_disk *inode_disk)
   }
 
   if (num_double_indirect_sectors > 0) {
-    success &= inode_allocate_double_indirect_sectors(inode_disk->block_pointers[current_index], num_of_sectors);
+    success &= inode_allocate_double_indirect_sectors(inode_disk->block_pointers[current_index], num_of_sectors, 0 , 0);
   }
 
   return success;
@@ -112,18 +115,20 @@ inode_allocate_indirect_sectors(block_sector_t *sectors, size_t max_iterator, si
 /* ONLY SUPPORT FOR ONE DOUBLE INDIRECT SECTOR! */
 /* TODO might still be broken!!! */
 bool
-inode_allocate_double_indirect_sectors(block_sector_t *sectors, size_t num_of_sectors)
+inode_allocate_double_indirect_sectors(block_sector_t *sectors, size_t num_of_sectors, size_t start_sector, size_t offset)
 {
   ASSERT(num_of_sectors > 0);
 
   bool success = true;
   // TODO: has to be set via parameter 
-  size_t iterator = 0;
+  size_t iterator = start_sector;
   struct indirect_block double_indirect_block;
 
   char zero_sector[BLOCK_SECTOR_SIZE];
 
   success &= free_map_allocate (1, sectors);
+
+  int counter = 0;
 
 
   // TODO catch case for to large
@@ -135,10 +140,15 @@ inode_allocate_double_indirect_sectors(block_sector_t *sectors, size_t num_of_se
       max_iterator = num_of_sectors;
 
     //TODO: check if 0 as start is always correct
-    inode_allocate_indirect_sectors(&double_indirect_block.block_pointers[iterator], max_iterator, 0); 
+    if (counter == 0){
+      inode_allocate_indirect_sectors(&double_indirect_block.block_pointers[iterator], max_iterator, offset); 
+    } else {
+      inode_allocate_indirect_sectors(&double_indirect_block.block_pointers[iterator], max_iterator, 0); 
+    }
     num_of_sectors -= max_iterator;
 
     iterator += 1;
+    counter += 1;
   }
 
   block_write(fs_device, *sectors, &double_indirect_block);
@@ -212,7 +222,13 @@ bool inode_grow(struct inode *inode, off_t size, off_t offset){
     }
   }
 
-  // TODO: add double indirect code
+  size_t index = index_in_double_indirect_sector (length);
+  size_t index_offset = index_indirect_sector_double_indirect (off_t size);
+
+  if (num_of_add_sectors > 0){
+    inode_allocate_double_indirect_sectors(inode->block_pointers[current_index], num_of_sectors, index , index_offset);
+    length += number_of_sectors * BLOCK_SECTOR_SIZE;
+  }
 
   inode->length = length;
   return success;
@@ -331,6 +347,24 @@ number_of_indirect_sectors (off_t size)
     return NUMBER_INDIRECT_BLOCKS;
   else
     return number_indirect_sectors;
+}
+
+// assumes there is only 1 double indirect sector
+size_t index_in_double_indirect_sector (off_t size){
+  if (size < NUMBER_DIRECT_BLOCKS * BLOCK_SECTOR_SIZE + NUMBER_INDIRECT_BLOCKS * NUMBER_INDIRECT_POINTERS * BLOCK_SECTOR_SIZE)
+    return 0;
+
+  size = size - NUMBER_DIRECT_BLOCKS * BLOCK_SECTOR_SIZE + NUMBER_INDIRECT_BLOCKS * NUMBER_INDIRECT_POINTERS * BLOCK_SECTOR_SIZE;
+
+  return DIV_ROUND_UP (size, NUMBER_INDIRECT_POINTERS);
+}
+
+size_t index_indirect_sector_double_indirect (off_t size){
+  size_t index = index_in_double_indirect_sector (size);
+  size = size - NUMBER_DIRECT_BLOCKS + NUMBER_INDIRECT_BLOCKS * NUMBER_INDIRECT_POINTERS + index * NUMBER_INDIRECT_POINTERS * NUMBER_INDIRECT_POINTERS;
+
+  return number_of_sectors(size);
+
 }
 
 
