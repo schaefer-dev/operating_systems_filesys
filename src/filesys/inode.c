@@ -26,7 +26,7 @@ size_t index_indirect_sector_double_indirect (off_t size);
 
 bool inode_allocate_indirect_sectors(block_sector_t *sectors, size_t max_iterator,
  size_t start_iterator);
-bool inode_allocate_double_indirect_sectors(block_sector_t *sectors, size_t num_of_sectors, size_t start_sector, size_t offset);
+bool inode_allocate_double_indirect_sectors(block_sector_t *sectors, size_t num_of_sectors, size_t start_index_double_indirect, size_t  start_index_indirect);
 
 void inode_deallocate_indirect_sectors(block_sector_t *sectors, size_t max_iterator);
 void inode_deallocate_double_indirect_sectors(block_sector_t *sectors, size_t num_of_sectors);
@@ -115,13 +115,13 @@ inode_allocate_indirect_sectors(block_sector_t *sectors, size_t max_iterator, si
 /* ONLY SUPPORT FOR ONE DOUBLE INDIRECT SECTOR! */
 /* TODO might still be broken!!! */
 bool
-inode_allocate_double_indirect_sectors(block_sector_t *sectors, size_t num_of_sectors, size_t start_sector, size_t offset)
+inode_allocate_double_indirect_sectors(block_sector_t *sectors, size_t num_of_sectors, size_t start_index_double_indirect, size_t  start_index_indirect)
 {
   ASSERT(num_of_sectors > 0);
 
   bool success = true;
   // TODO: has to be set via parameter 
-  size_t iterator = start_sector;
+  size_t iterator = start_index_double_indirect;
   struct indirect_block double_indirect_block;
 
   char zero_sector[BLOCK_SECTOR_SIZE];
@@ -141,7 +141,7 @@ inode_allocate_double_indirect_sectors(block_sector_t *sectors, size_t num_of_se
 
     //TODO: check if 0 as start is always correct
     if (counter == 0){
-      inode_allocate_indirect_sectors(&double_indirect_block.block_pointers[iterator], max_iterator, offset); 
+      inode_allocate_indirect_sectors(&double_indirect_block.block_pointers[iterator], max_iterator, start_index_indirect); 
     } else {
       inode_allocate_indirect_sectors(&double_indirect_block.block_pointers[iterator], max_iterator, 0); 
     }
