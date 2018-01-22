@@ -156,9 +156,11 @@ inode_allocate_double_indirect_sectors(block_sector_t *sectors, size_t num_of_se
 }
 
 bool inode_grow(struct inode *inode, off_t size, off_t offset){
-  // TODO: assert lock is already hold 
+  // TODO: assert lock is already hold
+  //printf("DEBUG: call grow with size: %i, and offset: %i\n", size, offset);
   char zero_sector[BLOCK_SECTOR_SIZE];
   off_t length = inode->data_length;
+  //printf("DEBUG: call grow with initial size: %i\n", length);
   // compute how many sectors are already used
   size_t num_of_used_sectors = number_of_sectors(length);
 
@@ -192,11 +194,16 @@ bool inode_grow(struct inode *inode, off_t size, off_t offset){
     }
   }
 
+  if (num_of_sectors < INDEX_INDIRECT_BLOCKS){
+     inode->data_length = size+offset;
+     return success;
+  }
+
   if (num_of_used_sectors >= INDEX_INDIRECT_BLOCKS && num_double_indirect_sectors == 0){
     // we have to calculate the indirect sector and the offset within the sector
     size_t start_sector = number_of_indirect_sectors(length);
     if (start_sector != 0){
-      current_index = start_sector;
+      current_index = start_sector + NUMBER_DIRECT_BLOCKS;
     } 
     index_offset = num_of_used_sectors - (NUMBER_DIRECT_BLOCKS + start_sector * NUMBER_INDIRECT_POINTERS);
     // start while-loop index_offset only in first indirect sector needed
@@ -221,6 +228,11 @@ bool inode_grow(struct inode *inode, off_t size, off_t offset){
     }
   }
 
+  if (num_of_sectors < INDIRECT_BLOCKS_END){
+     inode->data_length = size+offset;
+     return success;
+  }
+
   size_t index_double_indirect = compute_index_double_indirect (length);
   size_t index_indirect = compute_index_indirect_from_double (length);
 
@@ -229,7 +241,7 @@ bool inode_grow(struct inode *inode, off_t size, off_t offset){
     length += num_of_add_sectors * BLOCK_SECTOR_SIZE;
   }
 
-  inode->data_length = length;
+  inode->data_length = size+offset;
   return success;
 }
 
