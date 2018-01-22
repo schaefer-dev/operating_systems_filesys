@@ -205,20 +205,20 @@ bool inode_grow(struct inode *inode, struct inode_disk *inode_disk, off_t size, 
 
   off_t new_size = size+offset;
 
-  size_t num_of_sectors = number_of_sectors(new_size);
+  size_t num_of_sectors_after = number_of_sectors(new_size);
 
-  size_t num_of_add_sectors = num_of_sectors - num_of_used_sectors;
+  size_t num_of_add_sectors = num_of_sectors_after - num_of_used_sectors;
 
   int current_index = 0;
 
-  size_t index_offset = 0;
+  size_t indirect_index = 0;
 
   bool success = true;
 
   if (num_of_used_sectors < INDEX_INDIRECT_BLOCKS){
     // start in direct blocks
     current_index = num_of_used_sectors;
-    index_offset = 0;
+    indirect_index = 0;
 
     while (num_of_add_sectors > 0 && current_index < INDEX_INDIRECT_BLOCKS) {
       // TODO: check if it is correct to use inode instead of inode_disk
@@ -231,18 +231,13 @@ bool inode_grow(struct inode *inode, struct inode_disk *inode_disk, off_t size, 
     }
   }
 
-  if (num_of_sectors < INDEX_INDIRECT_BLOCKS){
-     return success;
-  }
-
   if (num_of_used_sectors >= INDEX_INDIRECT_BLOCKS && num_double_indirect_sectors == 0){
     // we have to calculate the indirect sector and the offset within the sector
     size_t start_sector = number_of_indirect_sectors(length);
-    if (start_sector != 0){
-      current_index = start_sector + NUMBER_DIRECT_BLOCKS;
-    } 
-    index_offset = num_of_used_sectors - (NUMBER_DIRECT_BLOCKS + start_sector * NUMBER_INDIRECT_POINTERS);
-    // start while-loop index_offset only in first indirect sector needed
+    current_index = start_sector + NUMBER_DIRECT_BLOCKS;
+
+    indirect_index = num_of_used_sectors - (NUMBER_DIRECT_BLOCKS + start_sector * NUMBER_INDIRECT_POINTERS);
+    // start while-loop indirect_index only in first indirect sector needed
     int indirect_iterator = 0;
     while (num_of_add_sectors > 0 && current_index < INDEX_DOUBLE_INDIRECT_BLOCKS) {
     size_t max_iterator = 0;
@@ -252,7 +247,7 @@ bool inode_grow(struct inode *inode, struct inode_disk *inode_disk, off_t size, 
       max_iterator = num_of_add_sectors;
 
       if (indirect_iterator == 0){
-        success &= inode_allocate_indirect_sectors(&block_pointers[current_index], max_iterator, index_offset);
+        success &= inode_allocate_indirect_sectors(&block_pointers[current_index], max_iterator, indirect_index);
       } else {
         success &= inode_allocate_indirect_sectors(&block_pointers[current_index], max_iterator, 0);
       }
@@ -264,16 +259,14 @@ bool inode_grow(struct inode *inode, struct inode_disk *inode_disk, off_t size, 
     }
   }
 
-  if (num_of_sectors < INDIRECT_BLOCKS_END){
-     return success;
-  }
-
   size_t index_double_indirect = compute_index_double_indirect (length);
   size_t index_indirect = compute_index_indirect_from_double (length);
 
   if (num_of_add_sectors > 0){
+    printf("DEBUG: double indirect Grow start \n");
     inode_allocate_double_indirect_sectors(block_pointers[current_index], num_of_add_sectors, index_indirect, index_double_indirect);
     length += num_of_add_sectors * BLOCK_SECTOR_SIZE;
+    printf("DEBUG: double indirect Grow end \n");
   }
 
   return success;
@@ -377,7 +370,7 @@ number_of_direct_sectors (off_t size)
 }
 
 
-/* already support for multiple indirect sectors */
+/* returns the current_index of the currently used indirect array (which may be partly empty) */
 size_t
 number_of_indirect_sectors (off_t size)
 {
@@ -386,7 +379,7 @@ number_of_indirect_sectors (off_t size)
 
   size = size - NUMBER_DIRECT_BLOCKS * BLOCK_SECTOR_SIZE;
 
-  size_t number_indirect_sectors = DIV_ROUND_UP (size, BLOCK_SECTOR_SIZE * NUMBER_INDIRECT_POINTERS);
+  size_t number_indirect_sectors = size / (BLOCK_SECTOR_SIZE * NUMBER_INDIRECT_POINTERS);
 
   if (number_indirect_sectors > NUMBER_INDIRECT_BLOCKS)
     return NUMBER_INDIRECT_BLOCKS;
@@ -403,6 +396,7 @@ size_t compute_index_double_indirect (off_t size){
 
   return DIV_ROUND_UP (size, NUMBER_INDIRECT_POINTERS);
 }
+
 
 size_t compute_index_indirect_from_double (off_t size){
   size_t index = compute_index_double_indirect (size);
@@ -726,8 +720,6 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
 
   if (inode->deny_write_cnt)
     return 0;
-
-  // TODO inode_grow has to be called here depending on size/offset
 
   while (size > 0) 
     {
