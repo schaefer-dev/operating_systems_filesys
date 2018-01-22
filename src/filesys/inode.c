@@ -25,7 +25,7 @@ size_t compute_index_indirect_from_double (off_t size);
 
 
 bool inode_allocate_indirect_sectors(block_sector_t *sectors, size_t max_iterator, size_t index_offset);
-bool inode_allocate_double_indirect_sectors(block_sector_t *sectors, size_t num_of_sectors, size_t start_index_double_indirect, size_t  start_index_indirect);
+bool inode_allocate_double_indirect_sectors(block_sector_t *sectors, size_t num_of_sectors, size_t start_index_indirect, size_t  start_index_double_indirect);
 
 void inode_deallocate_indirect_sectors(block_sector_t *sectors, size_t max_iterator);
 void inode_deallocate_double_indirect_sectors(block_sector_t *sectors, size_t num_of_sectors);
@@ -115,7 +115,7 @@ inode_allocate_indirect_sectors(block_sector_t *sectors, size_t max_iterator, si
 /* ONLY SUPPORT FOR ONE DOUBLE INDIRECT SECTOR! */
 /* TODO might still be broken!!! */
 bool
-inode_allocate_double_indirect_sectors(block_sector_t *sectors, size_t num_of_sectors, size_t start_index_double_indirect, size_t  start_index_indirect)
+inode_allocate_double_indirect_sectors(block_sector_t *sectors, size_t num_of_sectors, size_t start_index_indirect, size_t  start_index_double_indirect)
 {
   ASSERT(num_of_sectors > 0);
 
@@ -245,7 +245,7 @@ bool inode_grow(struct inode *inode, off_t size, off_t offset){
   size_t index_indirect = compute_index_indirect_from_double (length);
 
   if (num_of_add_sectors > 0){
-    inode_allocate_double_indirect_sectors(inode->block_pointers[current_index], num_of_add_sectors, index_double_indirect , index_indirect);
+    inode_allocate_double_indirect_sectors(inode->block_pointers[current_index], num_of_add_sectors, index_indirect, index_double_indirect);
     length += num_of_add_sectors * BLOCK_SECTOR_SIZE;
   }
 
@@ -617,8 +617,6 @@ inode_close (struct inode *inode)
           inode_disk.directory = inode->directory;
           memcpy(&inode_disk.block_pointers, &inode->block_pointers, NUMBER_INODE_POINTERS * sizeof(block_sector_t));
           block_write(fs_device, inode->sector, &inode_disk);
-          
-          
         }
 
       free (inode); 
