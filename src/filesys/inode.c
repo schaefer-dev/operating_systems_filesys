@@ -30,7 +30,7 @@ bool inode_allocate_double_indirect_sectors(block_sector_t *sectors, size_t num_
 void inode_deallocate_indirect_sectors(block_sector_t *sectors, size_t max_iterator);
 void inode_deallocate_double_indirect_sectors(block_sector_t *sectors, size_t num_of_sectors);
 
-bool inode_grow(struct inode *inode, off_t size, off_t offset);
+bool inode_grow(struct inode *inode, struct inode_disk *inode_disk, off_t size, off_t offset);
 
 /* List of open inodes, so that opening a single inode twice
    returns the same `struct inode'. */
@@ -163,11 +163,22 @@ inode_allocate_double_indirect_sectors(block_sector_t *sectors, size_t num_of_se
 }
 
 
-bool inode_grow(struct inode *inode, off_t size, off_t offset){
+/* TODO remember to set length after every call to inode_grow */
+bool inode_grow(struct inode *inode, struct inode_disk *inode_disk, off_t size, off_t offset){
   // TODO: assert lock is already hold
   //printf("DEBUG: call grow with size: %i, and offset: %i\n", size, offset);
   char zero_sector[BLOCK_SECTOR_SIZE];
-  off_t length = inode->data_length;
+  off_t length;
+  block_sector_t *block_pointers;
+
+  if (inode != NULL) {
+    length = inode->data_length;
+    block_pointers = inode->block_pointers;
+  } else {
+    length = inode_disk->length;
+    block_pointers = inode_disk->block_pointers;
+  }
+
   //printf("DEBUG: call grow with initial size: %i\n", length);
   // compute how many sectors are already used
   size_t num_of_used_sectors = number_of_sectors(length);
@@ -193,8 +204,8 @@ bool inode_grow(struct inode *inode, off_t size, off_t offset){
 
     while (num_of_add_sectors > 0 && current_index < INDEX_INDIRECT_BLOCKS) {
       // TODO: check if it is correct to use inode instead of inode_disk
-      success &= free_map_allocate (1, &inode->block_pointers[current_index]);
-      block_write(fs_device, inode->block_pointers[current_index], zero_sector);
+      success &= free_map_allocate (1, &block_pointers[current_index]);
+      block_write(fs_device, block_pointers[current_index], zero_sector);
       num_of_add_sectors -= 1;
       current_index += 1;
       num_of_used_sectors += 1;
@@ -203,7 +214,6 @@ bool inode_grow(struct inode *inode, off_t size, off_t offset){
   }
 
   if (num_of_sectors < INDEX_INDIRECT_BLOCKS){
-     inode->data_length = size+offset;
      return success;
   }
 
@@ -224,9 +234,9 @@ bool inode_grow(struct inode *inode, off_t size, off_t offset){
       max_iterator = num_of_add_sectors;
 
       if (indirect_iterator == 0){
-        success &= inode_allocate_indirect_sectors(&inode->block_pointers[current_index], max_iterator, index_offset);
+        success &= inode_allocate_indirect_sectors(&block_pointers[current_index], max_iterator, index_offset);
       } else {
-        success &= inode_allocate_indirect_sectors(&inode->block_pointers[current_index], max_iterator, 0);
+        success &= inode_allocate_indirect_sectors(&block_pointers[current_index], max_iterator, 0);
       }
       
       num_of_add_sectors -= max_iterator;
@@ -237,7 +247,6 @@ bool inode_grow(struct inode *inode, off_t size, off_t offset){
   }
 
   if (num_of_sectors < INDIRECT_BLOCKS_END){
-     inode->data_length = size+offset;
      return success;
   }
 
@@ -245,11 +254,10 @@ bool inode_grow(struct inode *inode, off_t size, off_t offset){
   size_t index_indirect = compute_index_indirect_from_double (length);
 
   if (num_of_add_sectors > 0){
-    inode_allocate_double_indirect_sectors(inode->block_pointers[current_index], num_of_add_sectors, index_indirect, index_double_indirect);
+    inode_allocate_double_indirect_sectors(block_pointers[current_index], num_of_add_sectors, index_indirect, index_double_indirect);
     length += num_of_add_sectors * BLOCK_SECTOR_SIZE;
   }
 
-  inode->data_length = size+offset;
   return success;
 }
 
@@ -499,6 +507,7 @@ inode_create (block_sector_t sector, off_t length)
   disk_inode = calloc (1, sizeof *disk_inode);
   if (disk_inode != NULL)
     {
+      inode_grow(NULL, disk_inode, length, 0);
       if (length > MAX_FILESIZE)
         disk_inode->length = MAX_FILESIZE;
       else
@@ -687,7 +696,8 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
   if (size + offset > inode->data_length){
     //TODO: require lock
     lock_acquire(&inode->inode_extend_lock);
-    inode_grow (inode, size, offset);
+    inode_grow (inode, NULL, size, offset);
+    inode->data_length = size + offset;
     lock_release(&inode->inode_extend_lock);
     //TODO: release lock
   }
