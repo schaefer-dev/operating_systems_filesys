@@ -585,12 +585,14 @@ inode_close (struct inode *inode)
       else
         { 
           /* write back to disk */
+          /*
           struct inode_disk inode_disk;
           inode_disk.length = inode->data_length;
           inode_disk.magic = INODE_MAGIC;
           inode_disk.directory = inode->directory;
-          memcpy(&inode_disk.block_pointers, &inode->block_pointers, NUMBER_INODE_POINTERS);
+          memcpy(&inode_disk.block_pointers, &inode->block_pointers, NUMBER_INODE_POINTERS * sizeof(block_sector_t));
           block_write(fs_device, inode->sector, &inode_disk);
+          */
           
         }
 
