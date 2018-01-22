@@ -54,7 +54,13 @@ inode_allocate (struct inode_disk *inode_disk)
   size_t num_of_sectors = number_of_sectors(inode_disk->length);
 
   // TODO make sure this is actually initialized with zero bytes
-  char zero_sector[BLOCK_SECTOR_SIZE]; 
+  uint8_t zero_sector[BLOCK_SECTOR_SIZE]; 
+  int zero_iterator = 0;
+  for (zero_iterator = 0; zero_iterator < BLOCK_SECTOR_SIZE; zero_iterator++){
+    zero_sector[zero_iterator] = 0;
+  }
+
+
   int current_index = 0;
   bool success = true;
 
@@ -97,7 +103,11 @@ inode_allocate_indirect_sectors(block_sector_t *sectors, size_t max_iterator, si
   size_t iterator = index_offset;
   struct indirect_block indirect_block;
 
-  char zero_sector[BLOCK_SECTOR_SIZE];
+  uint8_t zero_sector[BLOCK_SECTOR_SIZE]; 
+  int zero_iterator = 0;
+  for (zero_iterator = 0; zero_iterator < BLOCK_SECTOR_SIZE; zero_iterator++){
+    zero_sector[zero_iterator] = 0;
+  }
 
   success &= free_map_allocate (1, sectors);
 
@@ -126,7 +136,11 @@ inode_allocate_double_indirect_sectors(block_sector_t *sectors, size_t num_of_se
   size_t iterator = start_index_indirect;
   struct indirect_block double_indirect_block;
 
-  char zero_sector[BLOCK_SECTOR_SIZE];
+  uint8_t zero_sector[BLOCK_SECTOR_SIZE]; 
+  int zero_iterator = 0;
+  for (zero_iterator = 0; zero_iterator < BLOCK_SECTOR_SIZE; zero_iterator++){
+    zero_sector[zero_iterator] = 0;
+  }
 
   success &= free_map_allocate (1, sectors);
 
@@ -167,7 +181,11 @@ inode_allocate_double_indirect_sectors(block_sector_t *sectors, size_t num_of_se
 bool inode_grow(struct inode *inode, struct inode_disk *inode_disk, off_t size, off_t offset){
   // TODO: assert lock is already hold
   //printf("DEBUG: call grow with size: %i, and offset: %i\n", size, offset);
-  char zero_sector[BLOCK_SECTOR_SIZE];
+  uint8_t zero_sector[BLOCK_SECTOR_SIZE]; 
+  int zero_iterator = 0;
+  for (zero_iterator = 0; zero_iterator < BLOCK_SECTOR_SIZE; zero_iterator++){
+    zero_sector[zero_iterator] = 0;
+  }
   off_t length;
   block_sector_t *block_pointers;
 
