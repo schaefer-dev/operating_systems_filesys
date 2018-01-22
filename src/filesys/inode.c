@@ -109,14 +109,18 @@ inode_allocate_indirect_sectors(block_sector_t *sectors, size_t max_iterator, si
     zero_sector[zero_iterator] = 0;
   }
 
-  success &= free_map_allocate (1, sectors);
+  if (index_offset==0){
+    success &= free_map_allocate (1, sectors);
+  }
 
   for (iterator = index_offset; iterator < max_iterator; iterator++) {
     success &= free_map_allocate (1, &indirect_block.block_pointers[iterator]);
     block_write(fs_device, indirect_block.block_pointers[iterator], zero_sector);
   }
 
-  block_write(fs_device, *sectors, &indirect_block);
+  if (index_offset==0){
+    block_write(fs_device, *sectors, &indirect_block);
+  }
 
   return success;
 }
@@ -180,7 +184,7 @@ inode_allocate_double_indirect_sectors(block_sector_t *sectors, size_t num_of_se
 /* TODO remember to set length after every call to inode_grow */
 bool inode_grow(struct inode *inode, struct inode_disk *inode_disk, off_t size, off_t offset){
   // TODO: assert lock is already hold
-  //printf("DEBUG: call grow with size: %i, and offset: %i\n", size, offset);
+  printf("DEBUG: call grow with size: %i, and offset: %i\n", size, offset);
   uint8_t zero_sector[BLOCK_SECTOR_SIZE]; 
   int zero_iterator = 0;
   for (zero_iterator = 0; zero_iterator < BLOCK_SECTOR_SIZE; zero_iterator++){
@@ -197,7 +201,7 @@ bool inode_grow(struct inode *inode, struct inode_disk *inode_disk, off_t size, 
     block_pointers = inode_disk->block_pointers;
   }
 
-  //printf("DEBUG: call grow with initial size: %i\n", length);
+  printf("DEBUG: call grow with initial size: %i\n", length);
   // compute how many sectors are already used
   size_t num_of_used_sectors = number_of_sectors(length);
 
@@ -232,11 +236,13 @@ bool inode_grow(struct inode *inode, struct inode_disk *inode_disk, off_t size, 
   }
 
   if (num_of_used_sectors >= INDEX_INDIRECT_BLOCKS && num_double_indirect_sectors == 0){
+    printf("DEBUG: grow indirect with sector:%i\n", num_of_used_sectors);
     // we have to calculate the indirect sector and the offset within the sector
     size_t start_sector = number_of_indirect_sectors(length);
     current_index = start_sector + NUMBER_DIRECT_BLOCKS;
 
     indirect_index = num_of_used_sectors - (NUMBER_DIRECT_BLOCKS + start_sector * NUMBER_INDIRECT_POINTERS);
+    printf("DEBUG: start_sector:%i, indirect_index:%i \n", start_sector, indirect_index);
     // start while-loop indirect_index only in first indirect sector needed
     int indirect_iterator = 0;
     while (num_of_add_sectors > 0 && current_index < INDEX_DOUBLE_INDIRECT_BLOCKS) {
@@ -268,7 +274,7 @@ bool inode_grow(struct inode *inode, struct inode_disk *inode_disk, off_t size, 
     length += num_of_add_sectors * BLOCK_SECTOR_SIZE;
     printf("DEBUG: double indirect Grow end \n");
   }
-
+  printf("DEBUG: grow end\n");
   return success;
 }
 
