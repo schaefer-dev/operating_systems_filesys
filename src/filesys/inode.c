@@ -378,6 +378,8 @@ inode_grow(struct inode *inode, struct inode_disk *inode_disk, off_t size, off_t
     }
   }
 
+  ASSERT(new_size==length);
+
   /* updating struct values */
   if (inode != NULL) {
     inode->data_length = length;
