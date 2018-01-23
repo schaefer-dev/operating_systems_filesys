@@ -215,9 +215,9 @@ debug_verify_inode(struct inode *inode, struct inode_disk *inode_disk)
     double_indirect_pointers = inode->double_indirect_pointers;
   } else {
     length = inode_disk->length;
-    direct_pointers = inode->direct_pointers;
-    indirect_pointers = inode->indirect_pointers;
-    double_indirect_pointers = inode->double_indirect_pointers;
+    direct_pointers = inode_disk->direct_pointers;
+    indirect_pointers = inode_disk->indirect_pointers;
+    double_indirect_pointers = inode_disk->double_indirect_pointers;
   }
 
   off_t sectors_to_check = number_of_sectors(length);
@@ -235,6 +235,7 @@ debug_verify_inode(struct inode *inode, struct inode_disk *inode_disk)
     if (!check)
       printf("     DEBUG: fail at: DIRECT: %u %u \n", current_index, indirect_index);
     current_index += 1;
+    sectors_to_check -= 1;
   }
 
   current_index = 0;
@@ -243,13 +244,18 @@ debug_verify_inode(struct inode *inode, struct inode_disk *inode_disk)
   while (sectors_to_check > 0 && current_index < NUMBER_INDIRECT_BLOCKS) {
     indirect_index = 0;
     struct indirect_block indirect_block;
+    bool check = debug_verify_sector(indirect_pointers[current_index]);
     block_read(fs_device, indirect_pointers[current_index], &indirect_block);
+    success &= check;
+      if (!check)
+        printf("     DEBUG: fail at: ROOT-INDIRECT: %u %u \n", current_index, indirect_index);
     while (sectors_to_check > 0 && indirect_index < NUMBER_INDIRECT_POINTERS) {
       bool check = debug_verify_sector(indirect_block.block_pointers[indirect_index]);
       success &= check;
       if (!check)
-        printf("     DEBUG: fail at: INDIRECT: %u %u \n", current_index, indirect_index);
+        printf("     DEBUG: fail at: INSIDE-INDIRECT: %u %u \n", current_index, indirect_index);
       indirect_index += 1;
+      sectors_to_check -= 1;
     }
     current_index += 1;
   }
@@ -513,28 +519,38 @@ byte_to_sector (const struct inode *inode, off_t pos)
 {
   ASSERT (inode != NULL);
 
-  if (pos >= inode->data_length)
+  if (pos >= inode->data_length){
+    printf("DEBUG: byte_to_sector returned -1, because outside length\n");
     return -1;
+  }
 
   uint32_t index;
+  block_sector_t return_sector = -1;
 
   /* check inside direct blocks */
   if (pos < DIRECT_BLOCKS_END) {
     index = (pos / BLOCK_SECTOR_SIZE);
-    return inode->direct_pointers[index];
+    return_sector = inode->direct_pointers[index];
+    goto done;
   }
 
   /* check inside indirect blocks */
   if (pos < INDIRECT_BLOCKS_END) {
-    return byte_to_sector_indirect(inode, pos);
+    return_sector = byte_to_sector_indirect(inode, pos);
+    goto done;
   }
 
   /* check inside double indirect blocks */
   if (pos < DOUBLE_INDIRECT_BLOCKS_END) {
-    return byte_to_sector_double_indirect(inode, pos);
-  } else {
-    return -1;
-  }
+    return_sector = byte_to_sector_double_indirect(inode, pos);
+    goto done;
+  } 
+
+ done:
+  if (!debug_verify_sector(return_sector))
+    printf("DEBUG: byte_to_sector returns invalid sector!!!\n");
+
+  return return_sector;
 }
 
 
@@ -617,7 +633,8 @@ inode_create (block_sector_t sector, off_t length)
         {
           block_write (fs_device, sector, disk_inode);
           success = true; 
-          //debug_verify_inode(NULL, disk_inode);
+          //if (!debug_verify_inode(NULL, disk_inode))
+          //  printf("DEBUG: above Fails caused disk_inode verification after allocate\n\n");
         } 
       else
         {
@@ -765,6 +782,7 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
 {
   uint8_t *buffer = buffer_;
   off_t bytes_read = 0;
+  uint8_t *bounce = NULL;
 
   /* cant read past size of inode */
   if (inode_length(inode) <= offset) {
@@ -787,13 +805,33 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
       if (chunk_size <= 0)
         break;
 
-      filesys_cache_read(sector_idx, buffer + bytes_read, sector_ofs, chunk_size);
+      if (sector_ofs == 0 && chunk_size == BLOCK_SECTOR_SIZE)
+        {
+          /* Read full sector directly into caller's buffer. */
+          block_read (fs_device, sector_idx, buffer + bytes_read);
+        }
+      else 
+        {
+          /* Read sector into bounce buffer, then partially copy
+             into caller's buffer. */
+          if (bounce == NULL) 
+            {
+              bounce = malloc (BLOCK_SECTOR_SIZE);
+              if (bounce == NULL)
+                break;
+            }
+          block_read (fs_device, sector_idx, bounce);
+          memcpy (buffer + bytes_read, bounce + sector_ofs, chunk_size);
+        }
+
+      //filesys_cache_read(sector_idx, buffer + bytes_read, sector_ofs, chunk_size);
 
       /* Advance. */
       size -= chunk_size;
       offset += chunk_size;
       bytes_read += chunk_size;
     }
+  free(bounce);
 
   return bytes_read;
 }
@@ -816,12 +854,14 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
     inode_grow (inode, NULL, size, offset);
     inode->data_length = size + offset;
     lock_release(&inode->inode_extend_lock);
-    //debug_verify_inode(inode, NULL);
+    if (!debug_verify_inode(inode, NULL))
+      printf("DEBUG: Above fails caused by fail after grow \n\n");
     //TODO: release lock
   }
 
   const uint8_t *buffer = buffer_;
   off_t bytes_written = 0;
+  uint8_t *bounce = NULL;
 
   if (inode->deny_write_cnt)
     return 0;
@@ -842,13 +882,39 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
       if (chunk_size <= 0)
         break;
 
-      filesys_cache_write(sector_idx, buffer + bytes_written, sector_ofs, chunk_size);
+      if (sector_ofs == 0 && chunk_size == BLOCK_SECTOR_SIZE)
+        {
+          /* Write full sector directly to disk. */
+          block_write (fs_device, sector_idx, buffer + bytes_written);
+        }
+      else 
+        {
+          /* We need a bounce buffer. */
+          if (bounce == NULL) 
+            {
+              bounce = malloc (BLOCK_SECTOR_SIZE);
+              if (bounce == NULL)
+                break;
+            }
+
+          /* If the sector contains data before or after the chunk
+             we're writing, then we need to read in the sector
+             first.  Otherwise we start with a sector of all zeros. */
+          if (sector_ofs > 0 || chunk_size < sector_left) 
+            block_read (fs_device, sector_idx, bounce);
+          else
+            memset (bounce, 0, BLOCK_SECTOR_SIZE);
+          memcpy (bounce + sector_ofs, buffer + bytes_written, chunk_size);
+          block_write (fs_device, sector_idx, bounce);
+        }
+      //filesys_cache_write(sector_idx, buffer + bytes_written, sector_ofs, chunk_size);
 
       /* Advance. */
       size -= chunk_size;
       offset += chunk_size;
       bytes_written += chunk_size;
     }
+  free(bounce);
   //printf("DEBUG: inode_write_at end\n");
   return bytes_written;
 }
