@@ -3,6 +3,7 @@
 #include <debug.h>
 #include <round.h>
 #include <string.h>
+#include <stdio.h>
 #include "filesys/filesys.h"
 #include "filesys/free-map.h"
 #include "threads/malloc.h"
@@ -111,7 +112,7 @@ inode_allocate (struct inode_disk *inode_disk)
   if (num_of_sectors > 0) {
     inode_disk->double_indirect_index = num_of_sectors % NUMBER_INDIRECT_POINTERS;
     inode_disk->indirect_index = num_of_sectors / NUMBER_INDIRECT_POINTERS;
-    success &= inode_allocate_double_indirect_sectors(inode_disk->double_indirect_pointers[current_index], num_of_sectors, 0 , 0);
+    success &= inode_allocate_double_indirect_sectors(&inode_disk->double_indirect_pointers[current_index], num_of_sectors, 0 , 0);
   }
 
   /* index has to be at the same location as stored on inode_disk */
@@ -373,7 +374,7 @@ inode_grow(struct inode *inode, struct inode_disk *inode_disk, off_t size, off_t
   if (index_level == 2){
     if (num_of_add_sectors > 0){
       //printf("DEBUG: double indirect Grow start \n");
-      inode_allocate_double_indirect_sectors(double_indirect_pointers[current_index], num_of_add_sectors, indirect_index, double_indirect_index);
+      inode_allocate_double_indirect_sectors(&double_indirect_pointers[current_index], num_of_add_sectors, indirect_index, double_indirect_index);
       length += num_of_add_sectors * BLOCK_SECTOR_SIZE;
       //printf("DEBUG: double indirect Grow end \n");
     }
@@ -435,7 +436,7 @@ inode_deallocate (struct inode *inode)
     /* free all indirect ones */
     int iter = 0;
     while (iter < NUMBER_DIRECT_BLOCKS) {
-      inode_deallocate_indirect_sectors(indirect_pointers[iter], NUMBER_INDIRECT_POINTERS);
+      inode_deallocate_indirect_sectors(&indirect_pointers[iter], NUMBER_INDIRECT_POINTERS);
       num_of_sectors -= NUMBER_INDIRECT_POINTERS;
       iter += 1;
     }
@@ -448,14 +449,14 @@ inode_deallocate (struct inode *inode)
         max_iterator = NUMBER_INDIRECT_POINTERS;
       else
         max_iterator = num_of_sectors;
-      inode_deallocate_indirect_sectors(indirect_pointers[current_index], max_iterator);
+      inode_deallocate_indirect_sectors(&indirect_pointers[current_index], max_iterator);
       num_of_sectors -= max_iterator;
       iter += 1;
     }
   }
 
   if (index_level == 2 && num_of_sectors > 0) {
-    inode_deallocate_double_indirect_sectors(&inode->double_indirect_pointers[current_index], num_of_sectors);
+    inode_deallocate_double_indirect_sectors(&double_indirect_pointers[current_index], num_of_sectors);
   }
 }
 
@@ -916,7 +917,6 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
       offset += chunk_size;
       bytes_written += chunk_size;
     }
-
 
   return bytes_written;
 }
