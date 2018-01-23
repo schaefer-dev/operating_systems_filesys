@@ -55,7 +55,6 @@ inode_allocate (struct inode_disk *inode_disk)
 
   size_t num_of_sectors = number_of_sectors(inode_disk->length);
 
-  // TODO make sure this is actually initialized with zero bytes
   uint8_t zero_sector[BLOCK_SECTOR_SIZE]; 
   int zero_iterator = 0;
   for (zero_iterator = 0; zero_iterator < BLOCK_SECTOR_SIZE; zero_iterator++){
@@ -122,7 +121,6 @@ inode_allocate (struct inode_disk *inode_disk)
 }
 
 
-/* TODO maybe refactor this because the call in allocate is not very nice with condition checking */
 bool
 inode_allocate_indirect_sectors(block_sector_t *sectors, size_t max_iterator, size_t index_offset)
 {
@@ -154,13 +152,10 @@ inode_allocate_indirect_sectors(block_sector_t *sectors, size_t max_iterator, si
 
 
 /* ONLY SUPPORT FOR ONE DOUBLE INDIRECT SECTOR! */
-/* TODO might still be broken!!! */
 bool
 inode_allocate_double_indirect_sectors(block_sector_t *sectors, size_t num_of_sectors, size_t start_index_indirect, size_t  start_index_double_indirect)
 {
   ASSERT(num_of_sectors > 0);
-
-  // TODO: index names in here are used counter-intuitively!
 
   bool success = true;
   // TODO: has to be set via parameter 
@@ -178,7 +173,6 @@ inode_allocate_double_indirect_sectors(block_sector_t *sectors, size_t num_of_se
   int counter = 0;
 
 
-  // TODO catch case for to large
   while (number_of_sectors > 0) {
     size_t max_iterator = 0;
     if (num_of_sectors > NUMBER_INDIRECT_POINTERS)
