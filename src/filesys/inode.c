@@ -140,9 +140,9 @@ inode_allocate_indirect_sectors(block_sector_t *sectors, size_t max_iterator, si
     block_read(fs_device, *sectors, &indirect_block);
   }
 
-  for (indirect_iterator = index_offset; indirect_iterator < max_iterator; indirect_iterator++) {
-    success &= free_map_allocate (1, &indirect_block.block_pointers[indirect_iterator]);
-    block_write(fs_device, indirect_block.block_pointers[indirect_iterator], zero_sector);
+  for (indirect_iterator = 0; indirect_iterator < max_iterator; indirect_iterator++) {
+    success &= free_map_allocate (1, &indirect_block.block_pointers[indirect_iterator + index_offset]);
+    block_write(fs_device, indirect_block.block_pointers[indirect_iterator + index_offset], zero_sector);
   }
 
   block_write(fs_device, *sectors, &indirect_block);
@@ -333,11 +333,7 @@ inode_grow(struct inode *inode, struct inode_disk *inode_disk, off_t size, off_t
       num_of_add_sectors -= 1;
       current_index += 1;
       num_of_used_sectors += 1;
-      if (num_of_add_sectors == 0 && (size % BLOCK_SECTOR_SIZE)!=0){
-        length += (size % BLOCK_SECTOR_SIZE);
-      } else {
-        length += BLOCK_SECTOR_SIZE;
-      }
+      length += BLOCK_SECTOR_SIZE;
     }
 
     if (num_of_add_sectors > 0 && current_index == NUMBER_DIRECT_BLOCKS){
@@ -353,7 +349,7 @@ inode_grow(struct inode *inode, struct inode_disk *inode_disk, off_t size, off_t
       size_t max_iterator = 0;
       if (!first_iter)
         indirect_index = 0;
-      if (num_of_add_sectors > NUMBER_INDIRECT_POINTERS)
+      if ((num_of_add_sectors + indirect_index) > NUMBER_INDIRECT_POINTERS)
         max_iterator = NUMBER_INDIRECT_POINTERS - indirect_index;
       else
         max_iterator = num_of_add_sectors;
@@ -362,11 +358,7 @@ inode_grow(struct inode *inode, struct inode_disk *inode_disk, off_t size, off_t
 
       first_iter = false;
       num_of_add_sectors -= max_iterator;
-      if ((num_of_add_sectors == 0) && (max_iterator > 0) && ((size % BLOCK_SECTOR_SIZE)!=0)){
-        length += (((max_iterator-1) * BLOCK_SECTOR_SIZE) + (size % BLOCK_SECTOR_SIZE));
-      } else {
-        length += (max_iterator * BLOCK_SECTOR_SIZE);
-      }
+      length += (max_iterator * BLOCK_SECTOR_SIZE);
       current_index += 1;
       indirect_index = max_iterator;
     }
@@ -389,7 +381,7 @@ inode_grow(struct inode *inode, struct inode_disk *inode_disk, off_t size, off_t
 
   printf("new_size: %i, length: %i \n", new_size, length);
 
-  ASSERT(new_size==length);
+  ASSERT(DIV_ROUND_UP(new_size, BLOCK_SECTOR_SIZE) == DIV_ROUND_UP(length, BLOCK_SECTOR_SIZE));
 
   /* updating struct values */
   if (inode != NULL) {
