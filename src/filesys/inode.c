@@ -168,7 +168,11 @@ inode_allocate_double_indirect_sectors(block_sector_t *sectors, size_t num_of_se
     zero_sector[zero_iterator] = 0;
   }
 
-  success &= free_map_allocate (1, sectors);
+  if (index_offset == 0 && start_index_indirect == 0){
+    success &= free_map_allocate (1, sectors);
+  } else {
+    block_read(fs_device, *sectors, &double_indirect_block);
+  }
 
   int counter = 0;
 
