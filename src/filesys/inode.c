@@ -274,7 +274,7 @@ bool
 inode_grow(struct inode *inode, struct inode_disk *inode_disk, off_t size, off_t offset)
 {
   // TODO: assert lock is already hold
-  //printf("DEBUG: call grow with size: %i, and offset: %i\n", size, offset);
+  printf("DEBUG: call grow with size: %i, and offset: %i\n", size, offset);
   uint8_t zero_sector[BLOCK_SECTOR_SIZE]; 
   int zero_iterator = 0;
   for (zero_iterator = 0; zero_iterator < BLOCK_SECTOR_SIZE; zero_iterator++){
@@ -333,7 +333,11 @@ inode_grow(struct inode *inode, struct inode_disk *inode_disk, off_t size, off_t
       num_of_add_sectors -= 1;
       current_index += 1;
       num_of_used_sectors += 1;
-      length += BLOCK_SECTOR_SIZE;
+      if (num_of_add_sectors == 0 && (size % BLOCK_SECTOR_SIZE)!=0){
+        length += (size % BLOCK_SECTOR_SIZE);
+      } else {
+        length += BLOCK_SECTOR_SIZE;
+      }
     }
 
     if (num_of_add_sectors > 0 && current_index == NUMBER_DIRECT_BLOCKS){
@@ -344,12 +348,13 @@ inode_grow(struct inode *inode, struct inode_disk *inode_disk, off_t size, off_t
 
   bool first_iter = true;
   if (index_level == 1){
+    //printf("DEBUG: grow indirect starts \n");
     while (num_of_add_sectors > 0 && current_index < NUMBER_INDIRECT_BLOCKS) {
       size_t max_iterator = 0;
       if (!first_iter)
         indirect_index = 0;
       if (num_of_add_sectors > NUMBER_INDIRECT_POINTERS)
-        max_iterator = NUMBER_INDIRECT_POINTERS;
+        max_iterator = NUMBER_INDIRECT_POINTERS - indirect_index;
       else
         max_iterator = num_of_add_sectors;
       
@@ -357,7 +362,11 @@ inode_grow(struct inode *inode, struct inode_disk *inode_disk, off_t size, off_t
 
       first_iter = false;
       num_of_add_sectors -= max_iterator;
-      length += (max_iterator * BLOCK_SECTOR_SIZE);
+      if ((num_of_add_sectors == 0) && (max_iterator > 0) && ((size % BLOCK_SECTOR_SIZE)!=0)){
+        length += (((max_iterator-1) * BLOCK_SECTOR_SIZE) + (size % BLOCK_SECTOR_SIZE));
+      } else {
+        length += (max_iterator * BLOCK_SECTOR_SIZE);
+      }
       current_index += 1;
       indirect_index = max_iterator;
     }
@@ -377,6 +386,8 @@ inode_grow(struct inode *inode, struct inode_disk *inode_disk, off_t size, off_t
       //printf("DEBUG: double indirect Grow end \n");
     }
   }
+
+  printf("new_size: %i, length: %i \n", new_size, length);
 
   ASSERT(new_size==length);
 
@@ -878,6 +889,7 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
 {
 
   // TODO: insert inode_grow
+  //printf("DEBUG: inode_write_at start\n");
   if (size + offset > inode->data_length){
     //TODO: require lock
     lock_acquire(&inode->inode_extend_lock);
@@ -917,7 +929,7 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
       offset += chunk_size;
       bytes_written += chunk_size;
     }
-
+  //printf("DEBUG: inode_write_at end\n");
   return bytes_written;
 }
 
