@@ -337,7 +337,7 @@ inode_grow(struct inode *inode, struct inode_disk *inode_disk, off_t size, off_t
     }
 
     if (num_of_add_sectors > 0 && current_index == NUMBER_DIRECT_BLOCKS){
-      index_level = 0;
+      index_level = 1;
       current_index = 0;
     }
   }
