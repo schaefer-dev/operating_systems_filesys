@@ -274,7 +274,7 @@ bool
 inode_grow(struct inode *inode, struct inode_disk *inode_disk, off_t size, off_t offset)
 {
   // TODO: assert lock is already hold
-  printf("DEBUG: call grow with size: %i, and offset: %i\n", size, offset);
+  //printf("DEBUG: call grow with size: %i, and offset: %i\n", size, offset);
   uint8_t zero_sector[BLOCK_SECTOR_SIZE]; 
   int zero_iterator = 0;
   for (zero_iterator = 0; zero_iterator < BLOCK_SECTOR_SIZE; zero_iterator++){
@@ -379,19 +379,19 @@ inode_grow(struct inode *inode, struct inode_disk *inode_disk, off_t size, off_t
     }
   }
 
-  printf("new_size: %i, length: %i \n", new_size, length);
+  //printf("new_size: %i, length: %i \n", new_size, length);
 
   ASSERT(DIV_ROUND_UP(new_size, BLOCK_SECTOR_SIZE) == DIV_ROUND_UP(length, BLOCK_SECTOR_SIZE));
 
   /* updating struct values */
   if (inode != NULL) {
-    inode->data_length = length;
+    inode->data_length = new_size;
     inode->index_level = index_level;
     inode->current_index = current_index;
     inode->indirect_index = indirect_index;
     inode->double_indirect_index = double_indirect_index;
   } else {
-    inode_disk->length = length;
+    inode_disk->length = new_size;
     inode_disk->index_level = index_level;
     inode_disk->current_index = current_index;
     inode_disk->indirect_index = indirect_index;
