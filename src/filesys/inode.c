@@ -111,6 +111,8 @@ inode_allocate_indirect_sectors(block_sector_t *sectors, size_t max_iterator, si
 
   if (index_offset==0){
     success &= free_map_allocate (1, sectors);
+  } else {
+    block_read(fs_device, *sectors, &indirect_block);
   }
 
   for (iterator = index_offset; iterator < max_iterator; iterator++) {
@@ -118,9 +120,7 @@ inode_allocate_indirect_sectors(block_sector_t *sectors, size_t max_iterator, si
     block_write(fs_device, indirect_block.block_pointers[iterator], zero_sector);
   }
 
-  if (index_offset==0){
-    block_write(fs_device, *sectors, &indirect_block);
-  }
+  block_write(fs_device, *sectors, &indirect_block);
 
   return success;
 }
@@ -525,6 +525,7 @@ inode_create (block_sector_t sector, off_t length)
   disk_inode = calloc (1, sizeof *disk_inode);
   if (disk_inode != NULL)
     {
+      disk_inode->length = 0;
       inode_grow(NULL, disk_inode, length, 0);
       if (length > MAX_FILESIZE)
         disk_inode->length = MAX_FILESIZE;
@@ -722,7 +723,6 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
   //
   const uint8_t *buffer = buffer_;
   off_t bytes_written = 0;
-  uint8_t *bounce = NULL;
 
   if (inode->deny_write_cnt)
     return 0;
@@ -750,7 +750,6 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
       offset += chunk_size;
       bytes_written += chunk_size;
     }
-  free (bounce);
 
   return bytes_written;
 }
