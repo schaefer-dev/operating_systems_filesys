@@ -113,6 +113,17 @@ check_sector (struct block *block, block_sector_t sector)
     }
 }
 
+bool
+verify_sector (struct block *block, block_sector_t sector)
+{
+  if (sector >= block->size)
+    {
+      return false;
+    }
+  return true;
+}
+
+
 /* Reads sector SECTOR from BLOCK into BUFFER, which must
    have room for BLOCK_SECTOR_SIZE bytes.
    Internally synchronizes accesses to block devices, so external

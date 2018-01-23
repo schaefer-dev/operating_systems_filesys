@@ -22,9 +22,11 @@
 
 
 /* number of direct/indirect/double-indirect blocks */
-#define NUMBER_DIRECT_BLOCKS 113
-#define NUMBER_INDIRECT_BLOCKS 1
+#define NUMBER_DIRECT_BLOCKS 1
+#define NUMBER_INDIRECT_BLOCKS 5
 #define NUMBER_DOUBLE_INDIRECT_BLOCKS 1
+
+#define NUMBER_UNUSED_BYTES (128 - 7 - NUMBER_DIRECT_BLOCKS - NUMBER_INDIRECT_BLOCKS - NUMBER_DOUBLE_INDIRECT_BLOCKS)
 
 /* overall number of pointers in inode */
 #define NUMBER_INODE_POINTERS (NUMBER_DIRECT_BLOCKS + NUMBER_INDIRECT_BLOCKS + NUMBER_DOUBLE_INDIRECT_BLOCKS)
@@ -32,19 +34,14 @@
 /* number of pointers contained in a indirect block */
 #define NUMBER_INDIRECT_POINTERS 128
 
-
-/* last byte which is contained in respective sector category */
 #define DIRECT_BLOCKS_END (NUMBER_DIRECT_BLOCKS * BLOCK_SECTOR_SIZE)
+
+
+
+#define MAX_FILESIZE ((NUMBER_DIRECT_BLOCKS + NUMBER_INDIRECT_BLOCKS * NUMBER_INDIRECT_POINTERS + NUMBER_DOUBLE_INDIRECT_BLOCKS * NUMBER_INDIRECT_POINTERS * NUMBER_INDIRECT_POINTERS) * BLOCK_SECTOR_SIZE)
 #define INDIRECT_BLOCKS_END ((NUMBER_DIRECT_BLOCKS + NUMBER_INDIRECT_BLOCKS * NUMBER_INDIRECT_POINTERS) * BLOCK_SECTOR_SIZE)
 #define DOUBLE_INDIRECT_BLOCKS_END ((NUMBER_DIRECT_BLOCKS + NUMBER_INDIRECT_BLOCKS * NUMBER_INDIRECT_POINTERS + NUMBER_DOUBLE_INDIRECT_BLOCKS * NUMBER_INDIRECT_POINTERS * NUMBER_INDIRECT_POINTERS) * BLOCK_SECTOR_SIZE)
 
-
-/* indices to work on the block_pointers array */
-#define INDEX_DIRECT_BLOCKS 0
-#define INDEX_INDIRECT_BLOCKS 113
-#define INDEX_DOUBLE_INDIRECT_BLOCKS 114
-
-#define MAX_FILESIZE ((NUMBER_DIRECT_BLOCKS + NUMBER_INDIRECT_BLOCKS * NUMBER_INDIRECT_POINTERS + NUMBER_DOUBLE_INDIRECT_BLOCKS * NUMBER_INDIRECT_POINTERS * NUMBER_INDIRECT_POINTERS) * BLOCK_SECTOR_SIZE)
 
 
 /* struct which describes indirect_block which contains NUMBER_INDIRECT_POINTERS
@@ -60,13 +57,19 @@ struct bitmap;
 /* On-disk inode.
    Must be exactly BLOCK_SECTOR_SIZE bytes long. */
 struct inode_disk
-  {
+ {
     off_t length;                       /* File size in bytes. */
     unsigned magic;                     /* Magic number. */
     bool directory;
-    uint32_t unused[10];                /* not used */
+    unsigned index_level;               /* level 0 -> direct, 1->indirect, 2->double-indirect */
+    off_t current_index;
+    off_t indirect_index;
+    off_t double_indirect_index;
+    uint32_t unused[NUMBER_UNUSED_BYTES];                /* not used */
     /* pointers to blocks with file content: */
-    uint32_t block_pointers[NUMBER_INODE_POINTERS];               
+    block_sector_t direct_pointers[NUMBER_DIRECT_BLOCKS];               
+    block_sector_t indirect_pointers[NUMBER_INDIRECT_BLOCKS];               
+    block_sector_t double_indirect_pointers[NUMBER_DOUBLE_INDIRECT_BLOCKS];               
   };
 
 
@@ -81,9 +84,16 @@ struct inode
     off_t data_length;                  /* length of the file in bytes */
     bool directory;
 
+    unsigned index_level;               /* level 0 -> direct, 1->indirect, 2->double-indirect */
+    off_t current_index;
+    off_t indirect_index;
+    off_t double_indirect_index;
+
     struct lock inode_extend_lock;
     /* pointers to blocks with file content: */
-    uint32_t block_pointers[NUMBER_INODE_POINTERS];               
+    block_sector_t direct_pointers[NUMBER_DIRECT_BLOCKS];               
+    block_sector_t indirect_pointers[NUMBER_INDIRECT_BLOCKS];               
+    block_sector_t double_indirect_pointers[NUMBER_DOUBLE_INDIRECT_BLOCKS];               
   };
 
 
