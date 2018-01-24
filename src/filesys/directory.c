@@ -21,6 +21,7 @@ struct dir_entry
     bool in_use;                        /* In use or free? */
   };
 
+
 /* returns the path contained in the string 'name' */
 char*
 dir_get_path (const char* name)
@@ -28,17 +29,21 @@ dir_get_path (const char* name)
   bool is_absolute_path = false;
   int name_length = strlen(name);
 
-  char *temp = malloc(sizeof(char) * name_length);;
+  char *temp = malloc(sizeof(char) * (name_length + 1));;
 
   // TODO make sure that this output is freed in all cases!
   char *output = malloc(sizeof(char) * name_length);
   unsigned output_offset = 0;
 
+  /* to make sure that last token is not null */
   strlcpy(temp, name, name_length + 1);
+  temp[name_length] = ' ';
+  temp[name_length+1] = '\0';
 
-  if (temp[0] == "/"){
+  if (temp[0] == '/'){
     is_absolute_path = true;
-    memcpy (output + output_offset, temp[0], sizeof(char));
+    char *absolute_path = "/";
+    memcpy (output + output_offset, absolute_path, sizeof(char));
     output_offset += 1;
   }
 
@@ -46,15 +51,18 @@ dir_get_path (const char* name)
   char *last_token = "";
   char *pos;
   for (token = strtok_r(temp, "/", &pos); token != NULL; token = strtok_r(NULL, "/", &pos)) {
-    int last_token_length = strlen(last_token);
-    if (last_token_length > 0){
-      memcpy (output + output_offset, last_token, sizeof(char) * last_token_length);
-      output_offset += last_token_length;
+    int token_length = strlen(token);
+    if (token_length > 0){
+      memcpy (output + output_offset, token, sizeof(char) * token_length);
+      output_offset += token_length;
       output[output_offset] = '/';
       output_offset += 1;
     }
     last_token = token;
   }
+
+  if (last_token != NULL)
+      output_offset -= strlen(last_token);
 
   output[output_offset-1] = '\0';
 
@@ -62,6 +70,7 @@ dir_get_path (const char* name)
 
   return output;
 }
+
 
 
 /* returns the filename contained in the string 'name' */
