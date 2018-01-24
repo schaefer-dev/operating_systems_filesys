@@ -21,12 +21,88 @@ struct dir_entry
     bool in_use;                        /* In use or free? */
   };
 
+
+/* returns the path contained in the string 'name' */
+char*
+dir_get_path (const char* name)
+{
+  bool is_absolute_path = false;
+  int name_length = strlen(name);
+
+  char *temp = malloc(sizeof(char) * name_length);;
+
+  // TODO make sure that this output is freed in all cases!
+  char *output = malloc(sizeof(char) * name_length);
+  unsigned output_offset = 0;
+
+  strlcpy(temp, name, name_length + 1);
+
+  if (temp[0] == "/"){
+    is_absolute_path = true;
+    memcpy (output + output_offset, temp[0], sizeof(char));
+    output_offset += 1;
+  }
+
+  char *token = "";
+  char *last_token = "";
+  char *pos;
+  for (token = strtok_r(temp, "/", &pos); token != NULL; token = strtok_r(NULL, "/", &pos)) {
+    int last_token_length = strlen(last_token);
+    if (last_token_length > 0){
+      memcpy (output + output_offset, last_token, sizeof(char) * last_token_length);
+      output_offset += last_token_length;
+      output[output_offset] = '/';
+      output_offset += 1;
+    }
+    last_token = token;
+  }
+
+  output[output_offset-1] = '\0';
+
+  free(temp);
+
+  return output;
+}
+
+
+/* returns the filename contained in the string 'name' */
+char*
+dir_get_file_name (const char* name)
+{
+  bool is_absolute_path = false;
+  int name_length = strlen(name);
+
+  int name_length = strlen(name);
+
+  char *temp = malloc(sizeof(char) * name_length);;
+
+  // TODO make sure that this output is freed in all cases!
+  char *output = malloc(sizeof(char) * name_length);
+
+  strlcopy(temp, name, name_length + 1);
+
+  char *token;
+  char *last_token;
+  char *pos;
+  for (token = strtok_r(temp, "/", &pos); token != NULL; token = strtok_r(NULL, "/", &pos)) {
+    last_token = token;
+  }
+
+  last_token_length = strlen(last_token);
+  strlcopy (output, token, last_token_length + 1);
+
+  free(temp);
+
+  return output;
+}
+
+
 /* Creates a directory with space for ENTRY_CNT entries in the
    given SECTOR.  Returns true if successful, false on failure. */
 bool
 dir_create (block_sector_t sector, size_t entry_cnt)
 {
-  return inode_create (sector, entry_cnt * sizeof (struct dir_entry));
+  return inode_create (sector, entry_cnt * sizeof (struct dir_entry, true);
 }
 
 /* Opens and returns the directory for the given INODE, of which

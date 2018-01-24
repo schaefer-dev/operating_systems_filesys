@@ -666,7 +666,7 @@ byte_to_sector_double_indirect (const struct inode *inode, off_t pos)
    Returns true if successful.
    Returns false if memory or disk allocation fails. */
 bool
-inode_create (block_sector_t sector, off_t length)
+inode_create (block_sector_t sector, off_t length, bool directory)
 {
   struct inode_disk *disk_inode = NULL;
   bool success = false;
@@ -685,6 +685,8 @@ inode_create (block_sector_t sector, off_t length)
       disk_inode->current_index = 0;
       disk_inode->indirect_index = 0;
       disk_inode->double_indirect_index = 0;
+      disk_inode->directory = directory;
+      disk_inode->parent = 0;
       inode_grow(NULL, disk_inode, length, 0);
       if (length > MAX_FILESIZE)
         disk_inode->length = MAX_FILESIZE;
@@ -745,6 +747,8 @@ inode_open (block_sector_t sector)
   inode->open_cnt = 1;
   inode->deny_write_cnt = 0;
   inode->removed = false;
+  inode->parent = 0;
+  inode->directory = false;
   lock_init(&inode->inode_extend_lock);
 
   /* read inode from disk into disk_data */
@@ -755,6 +759,8 @@ inode_open (block_sector_t sector)
   inode->current_index = disk_data.current_index;
   inode->indirect_index = disk_data.indirect_index;
   inode->double_indirect_index = disk_data.double_indirect_index;
+  inode->directory = disk_inode->directory;
+  inode->parent = disk_inode->parent;
 
   // TODO make this stacis somewhere
   int bytes_per_block_sector = sizeof(block_sector_t);
@@ -817,6 +823,8 @@ inode_close (struct inode *inode)
           inode_disk.double_indirect_index = inode->double_indirect_index;
           inode_disk.directory = inode->directory;
           inode_disk.magic = INODE_MAGIC;
+          inode_disk.directory = inode->directory;
+          inode_disk.parent = inode->parent;
           memcpy(&inode_disk.direct_pointers, &inode->direct_pointers, NUMBER_DIRECT_BLOCKS * sizeof(block_sector_t));
           memcpy(&inode_disk.indirect_pointers, &inode->indirect_pointers, NUMBER_INDIRECT_BLOCKS * sizeof(block_sector_t));
           memcpy(&inode_disk.double_indirect_pointers, &inode->double_indirect_pointers, NUMBER_DOUBLE_INDIRECT_BLOCKS * sizeof(block_sector_t));
@@ -888,16 +896,14 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
                 off_t offset) 
 {
 
-  // TODO: insert inode_grow
   //printf("DEBUG: inode_write_at start\n");
   if (size + offset > inode->data_length){
-    //TODO: require lock
     lock_acquire(&inode->inode_extend_lock);
     inode_grow (inode, NULL, size, offset);
     inode->data_length = size + offset;
     lock_release(&inode->inode_extend_lock);
     //debug_verify_inode(inode, NULL);
-    //TODO: release lock
+    // TODO don't extend length in grow, do it after write is complete!
   }
 
   const uint8_t *buffer = buffer_;
@@ -958,4 +964,17 @@ off_t
 inode_length (struct inode *inode)
 {
   return inode->data_length;
+}
+
+block_sector_t
+inode_parent (struct inode *inode)
+{
+  return inode->parent;
+}
+
+
+bool
+inode_is_directory (struct inode *inode)
+{
+  return inode->directory;
 }

@@ -26,7 +26,7 @@
 #define NUMBER_INDIRECT_BLOCKS 1
 #define NUMBER_DOUBLE_INDIRECT_BLOCKS 1
 
-#define NUMBER_UNUSED_BYTES (128 - 7 - NUMBER_DIRECT_BLOCKS - NUMBER_INDIRECT_BLOCKS - NUMBER_DOUBLE_INDIRECT_BLOCKS)
+#define NUMBER_UNUSED_BYTES (128 - 8 - NUMBER_DIRECT_BLOCKS - NUMBER_INDIRECT_BLOCKS - NUMBER_DOUBLE_INDIRECT_BLOCKS)
 
 /* overall number of pointers in inode */
 #define NUMBER_INODE_POINTERS (NUMBER_DIRECT_BLOCKS + NUMBER_INDIRECT_BLOCKS + NUMBER_DOUBLE_INDIRECT_BLOCKS)
@@ -61,6 +61,8 @@ struct inode_disk
     off_t length;                       /* File size in bytes. */
     unsigned magic;                     /* Magic number. */
     bool directory;
+    /* TODO initilized with 0, this might be an issue later */
+    block_sector_t parent;
     unsigned index_level;               /* level 0 -> direct, 1->indirect, 2->double-indirect */
     off_t current_index;
     off_t indirect_index;
@@ -83,6 +85,8 @@ struct inode
     int deny_write_cnt;                 /* 0: writes ok, >0: deny writes. */
     off_t data_length;                  /* length of the file in bytes */
     bool directory;
+    /* TODO initilized with 0, this might be an issue later */
+    block_sector_t parent;
 
     unsigned index_level;               /* level 0 -> direct, 1->indirect, 2->double-indirect */
     off_t current_index;
@@ -102,7 +106,7 @@ void inode_init (void);
 bool inode_allocate (struct inode_disk *inode_disk);
 void inode_deallocate (struct inode *inode);
 
-bool inode_create (block_sector_t, off_t);
+bool inode_create (block_sector_t, off_t, bool);
 struct inode *inode_open (block_sector_t);
 struct inode *inode_reopen (struct inode *);
 block_sector_t inode_get_inumber (const struct inode *);
@@ -113,5 +117,7 @@ off_t inode_write_at (struct inode *, const void *, off_t size, off_t offset);
 void inode_deny_write (struct inode *);
 void inode_allow_write (struct inode *);
 off_t inode_length (struct inode *);
+block_sector_t inode_parent (struct inode *);
+bool inode_is_directory (struct inode *);
 
 #endif /* filesys/inode.h */
