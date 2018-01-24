@@ -713,8 +713,8 @@ inode_open (block_sector_t sector)
   inode->current_index = disk_data.current_index;
   inode->indirect_index = disk_data.indirect_index;
   inode->double_indirect_index = disk_data.double_indirect_index;
-  inode->directory = disk_inode->directory;
-  inode->parent = disk_inode->parent;
+  inode->directory = disk_data.directory;
+  inode->parent = disk_data.parent;
 
   // TODO make this stacis somewhere
   int bytes_per_block_sector = sizeof(block_sector_t);
