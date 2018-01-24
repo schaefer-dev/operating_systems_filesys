@@ -26,7 +26,9 @@ struct dir_entry
 char*
 dir_get_path (const char* name)
 {
-  bool is_absolute_path = false;
+  ASSERT(name != NULL);
+
+  //bool is_absolute_path = false;
   int name_length = strlen(name);
 
   char *temp = malloc(sizeof(char) * (name_length + 1));;
@@ -41,7 +43,7 @@ dir_get_path (const char* name)
   temp[name_length+1] = '\0';
 
   if (temp[0] == '/'){
-    is_absolute_path = true;
+    //is_absolute_path = true;
     char *absolute_path = "/";
     memcpy (output + output_offset, absolute_path, sizeof(char));
     output_offset += 1;
@@ -68,36 +70,52 @@ dir_get_path (const char* name)
 
   free(temp);
 
+  if (strlen(output) == 0)
+    return NULL;
+
   return output;
 }
 
 
 
-/* returns the filename contained in the string 'name' */
+/* returns the filename contained in the string 'name' and NULL if name is
+empty or doesn't contain a filename */
 char*
 dir_get_file_name (const char* name)
 {
-  bool is_absolute_path = false;
+  ASSERT(name != NULL);
   int name_length = strlen(name);
 
-  char *temp = malloc(sizeof(char) * name_length);;
+  char *temp = malloc(sizeof(char) * (name_length + 1));;
 
-  // TODO make sure that this output is freed in all cases!
   char *output = malloc(sizeof(char) * name_length);
+  unsigned output_offset = 0;
 
+  /* to make sure that last token is not null */
   strlcpy(temp, name, name_length + 1);
+  temp[name_length] = ' ';
+  temp[name_length+1] = '\0';
 
-  char *token;
-  char *last_token;
+
+  char *token = "";
+  char *last_token = "";
   char *pos;
   for (token = strtok_r(temp, "/", &pos); token != NULL; token = strtok_r(NULL, "/", &pos)) {
     last_token = token;
   }
 
-  int last_token_length = strlen(last_token);
-  strlcpy (output, token, last_token_length + 1);
+  if (last_token != NULL){
+    int last_token_length = strlen(last_token);
+    memcpy (output, last_token, sizeof(char) * last_token_length);
+    output_offset += last_token_length;
+
+    output[output_offset-1] = '\0';
+  }
 
   free(temp);
+
+  if (strlen(output) == 0)
+    return NULL;
 
   return output;
 }
