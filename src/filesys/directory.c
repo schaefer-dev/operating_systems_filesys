@@ -21,16 +21,14 @@ struct dir_entry
     bool in_use;                        /* In use or free? */
   };
 
-
 /* returns the path contained in the string 'name' */
-/*
 char*
 dir_get_path (const char* name)
 {
   bool is_absolute_path = false;
   int name_length = strlen(name);
 
-  char *temp = malloc(sizeof(char) * name_length);
+  char *temp = malloc(sizeof(char) * name_length);;
 
   // TODO make sure that this output is freed in all cases!
   char *output = malloc(sizeof(char) * name_length);
@@ -67,7 +65,6 @@ dir_get_path (const char* name)
 
 
 /* returns the filename contained in the string 'name' */
-/*
 char*
 dir_get_file_name (const char* name)
 {
