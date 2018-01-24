@@ -219,9 +219,10 @@ filesys_cache_thread_read_ahead (block_sector_t disk_sector) {
 void
 filesys_cache_writeback() {
   //printf("DEBUG writeback BEGIN\n");
+
   int iterator = next_free_cache - 1;
 
-  while (iterator != 0) {
+  while (iterator >= 0) {
     //printf("DEBUG writeback iter\n");
     struct cache_block *iterator_block = cache_array[iterator];
     //if (iterator_block==NULL){
