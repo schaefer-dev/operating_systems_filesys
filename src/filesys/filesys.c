@@ -66,10 +66,11 @@ filesys_create (const char *name, off_t initial_size, bool is_directory)
   }
   dir = dir_open_path(path);
   /* TODO: create directory at this point?? */
+  /*TODO: add self as first entry in directory in case of directory */
   bool success = (dir != NULL
                   && free_map_allocate (1, &inode_sector)
                   && inode_create (inode_sector, initial_size, is_directory)
-                  && dir_add (dir, name, inode_sector, is_directory));
+                  && dir_add (dir, filename, inode_sector, is_directory));
   if (!success && inode_sector != 0) 
     free_map_release (inode_sector, 1);
   dir_close (dir);
