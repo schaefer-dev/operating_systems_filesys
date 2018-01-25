@@ -345,6 +345,8 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector, bool is
       return false;
     struct dir_entry parent;
     parent.in_use = true;
+    struct inode *parent_inode = dir->inode;
+    parent.inode_sector = parent.inode_sector;
     /* TODO: how to set name?
     parent.name =
     */

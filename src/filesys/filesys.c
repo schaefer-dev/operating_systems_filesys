@@ -61,8 +61,11 @@ filesys_create (const char *name, off_t initial_size, bool is_directory)
   if (path == NULL){
     //TODO: open current working directory
     dir = dir_reopen(thread_current()->current_working_dir);
+    if (dir == NULL)
+      return false;
   }
   dir = dir_open_path(path);
+  /* TODO: create directory at this point?? */
   bool success = (dir != NULL
                   && free_map_allocate (1, &inode_sector)
                   && inode_create (inode_sector, initial_size, is_directory)
@@ -104,6 +107,28 @@ filesys_remove (const char *name)
   dir_close (dir); 
 
   return success;
+}
+
+/* changes the current working directory of the running thread
+  returns true on success and false if the new working directory
+  does not exists */
+bool filesys_chdir (const char *name)
+{
+  if (name == NULL)
+    return false;
+  struct dir *new_cwd = dir_open_path(name);
+
+  if(dir == NULL)
+    return false;
+
+  struct thread *current_thread = thread_current();
+  struct dir *old_cwd = current_thread->current_working_dir;
+  if (old_cwd != NULL)
+    dir_close(old_cwd);
+
+  current_thread->current_working_dir = new_cwd;
+
+  return true;
 }
 
 /* Formats the file system. */
