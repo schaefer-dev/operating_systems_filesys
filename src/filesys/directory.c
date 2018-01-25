@@ -338,6 +338,23 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector, bool is
     if (!e.in_use)
       break;
 
+  /*TODO: if directory we add the directory to the file(in this case a directory) */
+  if(is_directory){
+    struct dir *child_dir = dir_open(inode_open(inode_sector));
+    if (child_dir == NULL)
+      return false;
+    struct dir_entry parent;
+    parent.in_use = true;
+    /* TODO: how to set name?
+    parent.name =
+    */
+    /* wirte parent to second position in directory; first one is own directory */
+    if(!inode_write_at(child_dir->inode, &parent, sizeof parent, sizeof parent)){
+      dir_close(child_dir);
+      return false;
+    }
+    dir_close(child_dir);
+  }  
   /* Write slot. */
   e.in_use = true;
   strlcpy (e.name, name, sizeof e.name);

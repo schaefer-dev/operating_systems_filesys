@@ -55,10 +55,8 @@ filesys_create (const char *name, off_t initial_size, bool is_directory)
   block_sector_t inode_sector = 0;
   char* path = dir_get_path(name);
   char* filename = dir_get_file_name(name);
-  if (!is_directory){
-    if (filename == NULL)
-      return false;
-  }
+  if (filename == NULL)
+    return false;
   struct dir *dir = NULL;
   if (path == NULL){
     //TODO: open current working directory
