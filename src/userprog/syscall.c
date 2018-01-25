@@ -426,7 +426,8 @@ syscall_create(const char *file_name, unsigned initial_size){
   if (length > max_file_name)
     return false;
   lock_acquire(&lock_filesystem);
-  bool success = filesys_create(file_name, initial_size);
+  //TODO: change this to create files probably only done in mkdir syscall
+  bool success = filesys_create(file_name, initial_size, false);
   lock_release(&lock_filesystem);
   return success;
 }
