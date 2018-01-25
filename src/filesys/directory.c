@@ -120,6 +120,72 @@ dir_get_file_name (const char* name)
   return output;
 }
 
+struct dir*
+dir_open_path(char* path)
+{
+  ASSERT(path != NULL);
+
+  // TODO: check if this is correct
+  if (path.name_length==0){
+    return dir_open_root;
+  }
+
+  struct dir *current_dir = NULL;
+
+  int name_length = strlen(name);
+
+  char *temp = malloc(sizeof(char) * (name_length + 1));
+
+  /* to make sure that last token is not null */
+  strlcpy(temp, name, name_length + 1);
+  temp[name_length] = ' ';
+  temp[name_length+1] = '\0';
+
+  if (temp[0] == '/'){
+    /* absolute path */
+    current_dir = dir_open_root();
+  } else {
+    /* relative path */
+    struct thread *current_thread = thread_current();
+    if (current_thread->current_working_dir != NULL){
+      current_dir = dir_reopen(current_thread->current_working_dir);
+    } else {
+      current_dir = dir_open_root();
+    }
+  }
+
+  /* change directory step by step based on path */
+  char *token = "";
+  char *pos;
+  for (token = strtok_r(temp, "/", &pos); token != NULL; token = strtok_r(NULL, "/", &pos)) {
+    int token_length = strlen(token);
+    if (token_length > 0){
+      struct inode *inode = NULL;
+      if (!dir_lookup (current_dir, token, &inode)){
+        goto done;
+      }
+      if (inode == NULL){
+        goto done;
+      }
+      struct dir *next_dir = dir_open(inode);
+      if (next_dir == NULL){
+        goto done;
+      }
+      dir_close(current_dir);
+      current_dir = next_dir;
+    }
+  }
+
+  //TODO: could be necessary to check if inode is already removed
+  free(temp);
+  return current_dir;
+
+  done:
+  dir_close(current_dir);
+  free(temp);
+  return NULL;
+}
+
 
 /* Creates a directory with space for ENTRY_CNT entries in the
    given SECTOR.  Returns true if successful, false on failure. */

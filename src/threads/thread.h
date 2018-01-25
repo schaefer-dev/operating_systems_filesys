@@ -115,6 +115,11 @@ struct thread
     /* Counter to give every file in file list a unique fd */
     int current_fd;
 
+    /* stores the current working directory of the process */
+    // TODO: check if include is needed
+    // TODO: check how to set it because start_process already has the child process as current thread
+    struct dir *current_working_dir;
+
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */

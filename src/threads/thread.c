@@ -500,6 +500,10 @@ init_thread (struct thread *t, const char *name, int priority)
   t->priority = priority;
   t->magic = THREAD_MAGIC;
 
+  /* initialize working directory with NULL will be changed in
+    process execute */
+  t->current_working_dir = NULL;
+
   /* initialize list for file system*/
   list_init(&t->file_list);
   t->current_fd = 2;
