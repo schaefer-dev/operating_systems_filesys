@@ -101,7 +101,7 @@ filesys_open (const char *name)
   struct inode *inode = NULL;
 
   if (dir != NULL)
-    dir_lookup (dir, name, &inode);
+    dir_lookup (dir, filename, &inode);
   dir_close (dir);
 
   return file_open (inode);
@@ -125,7 +125,7 @@ filesys_remove (const char *name)
     if (dir == NULL)
       return false;
   }
-  bool success = dir != NULL && dir_remove (dir, name);
+  bool success = dir != NULL && dir_remove (dir, filename);
   dir_close (dir); 
 
   return success;
