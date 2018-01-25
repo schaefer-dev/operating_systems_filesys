@@ -86,7 +86,18 @@ filesys_create (const char *name, off_t initial_size, bool is_directory)
 struct file *
 filesys_open (const char *name)
 {
-  struct dir *dir = dir_open_root ();
+  char* path = dir_get_path(name);
+  char* filename = dir_get_file_name(name);
+  if (filename == NULL)
+    return NULL;
+  struct dir *dir = NULL;
+  if (path == NULL){
+    //TODO: open current working directory
+    dir = dir_reopen(thread_current()->current_working_dir);
+    if (dir == NULL)
+      return NULL;
+  }
+  dir = dir_open_path(path);
   struct inode *inode = NULL;
 
   if (dir != NULL)
@@ -103,7 +114,17 @@ filesys_open (const char *name)
 bool
 filesys_remove (const char *name) 
 {
-  struct dir *dir = dir_open_root ();
+  char* path = dir_get_path(name);
+  char* filename = dir_get_file_name(name);
+  if (filename == NULL)
+    return false;
+  struct dir *dir = NULL;
+  if (path == NULL){
+    //TODO: open current working directory
+    dir = dir_reopen(thread_current()->current_working_dir);
+    if (dir == NULL)
+      return false;
+  }
   bool success = dir != NULL && dir_remove (dir, name);
   dir_close (dir); 
 
