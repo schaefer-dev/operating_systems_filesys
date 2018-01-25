@@ -131,7 +131,7 @@ dir_open_path(char* path)
 
   // TODO: check if this is correct
   if (path.name_length==0){
-    return dir_open_root;
+    return NULL;
   }
 
   struct dir *current_dir = NULL;
