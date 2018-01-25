@@ -49,12 +49,14 @@ filesys_done (void)
    Returns true if successful, false otherwise.
    Fails if a file named NAME already exists,
    or if internal memory allocation fails. */
+//TODO: rename is_directory in directory
 bool
-filesys_create (const char *name, off_t initial_size, bool is_directory) 
+filesys_create (const char *name, off_t initial_size, bool directory) 
 {
   block_sector_t inode_sector = 0;
   char* path = dir_get_path(name);
   char* filename = dir_get_file_name(name);
+  // TODO: free char*
   if (filename == NULL)
     return false;
   struct dir *dir = NULL;
@@ -69,8 +71,8 @@ filesys_create (const char *name, off_t initial_size, bool is_directory)
   /*TODO: add self as first entry in directory in case of directory */
   bool success = (dir != NULL
                   && free_map_allocate (1, &inode_sector)
-                  && inode_create (inode_sector, initial_size, is_directory)
-                  && dir_add (dir, filename, inode_sector, is_directory));
+                  && inode_create (inode_sector, initial_size, directory)
+                  && dir_add (dir, filename, inode_sector, directory));
   if (!success && inode_sector != 0) 
     free_map_release (inode_sector, 1);
   dir_close (dir);
@@ -159,7 +161,7 @@ do_format (void)
 {
   printf ("Formatting file system...");
   free_map_create ();
-  if (!dir_create (ROOT_DIR_SECTOR, 16))
+  if (!dir_create_root (ROOT_DIR_SECTOR, 16))
     PANIC ("root directory creation failed");
   free_map_close ();
   printf ("done.\n");

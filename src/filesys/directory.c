@@ -194,7 +194,7 @@ dir_open_path(char* path)
 /* Creates a directory with space for ENTRY_CNT entries in the
    given SECTOR.  Returns true if successful, false on failure. */
 bool
-dir_create (block_sector_t sector, size_t entry_cnt)
+dir_create_root (block_sector_t sector, size_t entry_cnt)
 {
   return inode_create (sector, entry_cnt * sizeof (struct dir_entry), true);
 }
@@ -224,7 +224,28 @@ dir_open (struct inode *inode)
 struct dir *
 dir_open_root (void)
 {
-  return dir_open (inode_open (ROOT_DIR_SECTOR));
+  struct inode *root_inode = inode_open (ROOT_DIR_SECTOR);
+  struct dir *root = dir_open (root_inode);
+  if (root == NULL)
+    return NULL;
+  struct dir_entry current;
+  current.in_use = true;
+  current.inode_sector = root_inode->inode_sector;
+  parent.name = ".";
+  /* wirte own directory to first position */
+  if(!inode_write_at(child_dir->inode, &current, sizeof current, 0)){
+    return NULL;
+  }
+  struct dir_entry parent;
+  parent.in_use = true;
+  parent.inode_sector = root_inode->inode_sector;
+  parent.name = "..";
+  /* wirte parent to second position in directory; first one is own directory */
+  if(!inode_write_at(child_dir->inode, &parent, sizeof parent, sizeof parent)){
+    return NULL;
+  }
+
+  return dir;
 }
 
 /* Opens and returns a new directory for the same inode as DIR.
@@ -308,8 +329,10 @@ dir_lookup (const struct dir *dir, const char *name,
    Returns true if successful, false on failure.
    Fails if NAME is invalid (i.e. too long) or a disk or memory
    error occurs. */
+
+//TODO: do the same for "."
 bool
-dir_add (struct dir *dir, const char *name, block_sector_t inode_sector, bool is_directory)
+dir_add (struct dir *dir, const char *name, block_sector_t inode_sector, bool directory)
 {
   struct dir_entry e;
   off_t ofs;
@@ -326,6 +349,37 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector, bool is
   if (lookup (dir, name, NULL, NULL))
     goto done;
 
+  /* if directory we add the directory to the file(in this case a directory) */
+  /* TODO: could be bad at this position race if inode not already created */
+  if(directory){
+    struct dir *child_dir = dir_open(inode_open(inode_sector));
+    if (child_dir == NULL)
+      return false;
+
+    /* add directory itself as directory entry to directory */
+    struct dir_entry current;
+    current.in_use = true;
+    current.inode_sector = inode_sector;
+    current.name = ".";
+    /* wirte parent to second position in directory; first one is own directory */
+    if(!inode_write_at(child_dir->inode, &current, sizeof current, 0)){
+      dir_close(child_dir);
+      return false;
+    }
+    /* add parent to directory */
+    struct dir_entry parent;
+    parent.in_use = true;
+    struct inode *parent_inode = dir->inode;
+    parent.inode_sector = parent_inode->inode_sector;
+    parent.name = "..";
+    /* wirte parent to second position in directory; first one is own directory */
+    if(!inode_write_at(child_dir->inode, &parent, sizeof parent, sizeof parent)){
+      dir_close(child_dir);
+      return false;
+    }
+    dir_close(child_dir);
+  }
+
   /* Set OFS to offset of free slot.
      If there are no free slots, then it will be set to the
      current end-of-file.
@@ -338,26 +392,8 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector, bool is
     if (!e.in_use)
       break;
 
-  /*TODO: if directory we add the directory to the file(in this case a directory) */
-  if(is_directory){
-    struct dir *child_dir = dir_open(inode_open(inode_sector));
-    if (child_dir == NULL)
-      return false;
-    struct dir_entry parent;
-    parent.in_use = true;
-    struct inode *parent_inode = dir->inode;
-    parent.inode_sector = parent.inode_sector;
-    parent.name = "..";
-    /* TODO: how to set name?
-    parent.name =
-    */
-    /* wirte parent to second position in directory; first one is own directory */
-    if(!inode_write_at(child_dir->inode, &parent, sizeof parent, sizeof parent)){
-      dir_close(child_dir);
-      return false;
-    }
-    dir_close(child_dir);
-  }  
+  ASSERT(ofs >= (2*(sizeof e)));
+
   /* Write slot. */
   e.in_use = true;
   strlcpy (e.name, name, sizeof e.name);
@@ -416,7 +452,7 @@ dir_readdir (struct dir *dir, char name[NAME_MAX + 1])
   while (inode_read_at (dir->inode, &e, sizeof e, dir->pos) == sizeof e) 
     {
       dir->pos += sizeof e;
-      if (e.in_use)
+      if (e.in_use && (ofs >= (2*(sizeof e))))
         {
           strlcpy (name, e.name, NAME_MAX + 1);
           return true;
