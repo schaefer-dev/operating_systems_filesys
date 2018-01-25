@@ -62,7 +62,7 @@ filesys_create (const char *name, off_t initial_size, bool is_directory)
   struct dir *dir = NULL;
   if (path == NULL){
     //TODO: open current working directory
-    
+    dir = dir_reopen(thread_current()->current_working_dir);
   }
   dir = dir_open_path(path);
   bool success = (dir != NULL
