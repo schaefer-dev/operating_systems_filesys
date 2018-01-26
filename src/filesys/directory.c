@@ -132,8 +132,10 @@ dir_open_path(const char* path)
   if (path == NULL){
     //TODO: open current working directory
     if (thread_current()->current_working_dir == NULL){
+      //printf("DEBUG: open path cwd is NULL \n");
       return dir_open_root();		
     } else
+	//printf("DEBUG: open path cwd NOT NULL \n");
         return dir_reopen(thread_current()->current_working_dir);
   }
 

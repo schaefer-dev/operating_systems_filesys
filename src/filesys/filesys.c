@@ -66,16 +66,16 @@ filesys_done (void)
 bool
 filesys_create (const char *name, off_t initial_size, bool directory) 
 {
-  printf("DEBUG: filesys create called\n");
+  //printf("DEBUG: filesys create called\n");
   block_sector_t inode_sector = 0;
   char* path = dir_get_path(name);
-  printf("DEBUG: get path returns:'%s'\n", path);
+  //printf("DEBUG: get path returns:'%s'\n", path);
   char* filename = dir_get_file_name(name);
-  printf("DEBUG: get filename returns:'%s'\n", filename);
+  //printf("DEBUG: get filename returns:'%s'\n", filename);
   // TODO: free char*
   if (filename == NULL)
     return false;
-  printf("DEBUG: filesys create filename not null\n");
+  //printf("DEBUG: filesys create filename not null\n");
   struct dir *dir = NULL;
   /*
   if (path == NULL){
@@ -96,7 +96,7 @@ filesys_create (const char *name, off_t initial_size, bool directory)
   if (!success && inode_sector != 0) 
     free_map_release (inode_sector, 1);
   dir_close (dir);
-  printf("DEBUG: filesys create finished\n");
+  //printf("DEBUG: filesys create finished\n");
   return success;
 }
 
@@ -108,7 +108,7 @@ filesys_create (const char *name, off_t initial_size, bool directory)
 struct file *
 filesys_open (const char *name)
 {
-  printf("DEBUG: filesys open called\n");
+  //printf("DEBUG: filesys open called\n");
   char* path = dir_get_path(name);
   char* filename = dir_get_file_name(name);
   if (filename == NULL)
@@ -128,7 +128,7 @@ filesys_open (const char *name)
   if (dir != NULL)
     dir_lookup (dir, filename, &inode);
   dir_close (dir);
-  printf("DEBUG: filesys open finished\n");
+  //printf("DEBUG: filesys open finished\n");
   return file_open (inode);
 }
 
