@@ -416,21 +416,21 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector, bool di
     current.in_use = true;
     current.inode_sector = inode_sector;
     char *current_name = ".";
-    strlcpy (current.name, current_name, sizeof current.name);
+    strlcpy (current.name, current_name, sizeof e.name);
     /* wirte parent to second position in directory; first one is own directory */
-    if(!inode_write_at(child_dir->inode, &current, sizeof current, 0)){
+    if(inode_write_at(child_dir->inode, &current, sizeof e, 0) != sizeof e){
       dir_close(child_dir);
       return false;
     }
     /* add parent to directory */
+    struct inode *parent_inode = dir->inode;
     struct dir_entry parent;
     parent.in_use = true;
-    struct inode *parent_inode = dir->inode;
     parent.inode_sector = parent_inode->sector;
     char *parent_name = "..";
-    strlcpy (parent.name, parent_name, sizeof parent.name);
+    strlcpy (parent.name, parent_name, sizeof e.name);
     /* wirte parent to second position in directory; first one is own directory */
-    if(!inode_write_at(child_dir->inode, &parent, sizeof parent, sizeof parent)){
+    if(inode_write_at(child_dir->inode, &parent, sizeof e, sizeof e) != sizeof e){
       dir_close(child_dir);
       return false;
     }
@@ -449,13 +449,23 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector, bool di
     if (!e.in_use)
       break;
 
-  ASSERT(ofs >= (2*(sizeof e)));
+  /* parent directory initially has to contain at least 2 entries */ 
+  if (directory){
+    ASSERT(ofs >= (2*(sizeof e)));
+  } 
+    
 
   /* Write slot. */
   e.in_use = true;
   strlcpy (e.name, name, sizeof e.name);
   e.inode_sector = inode_sector;
-  success = inode_write_at (dir->inode, &e, sizeof e, ofs) == sizeof e;
+  off_t bytes_written = inode_write_at (dir->inode, &e, sizeof e, ofs);
+
+  /* parent directory now has to contain at least 3 entries */ 
+  ASSERT((ofs + bytes_written) >= (3*(sizeof e)));
+
+  if (bytes_written == sizeof e)
+    success = true;
 
  done:
   return success;
@@ -484,7 +494,7 @@ dir_remove (struct dir *dir, const char *name)
   if (inode == NULL)
     goto done;
 
-  if (inode->directory){
+  if (inode->directory != NULL){
     struct dir *delete_dir = dir_open(inode);
     if(!dir_is_empty(delete_dir)){
       /* directory is not empty and cannot be removed */
