@@ -53,9 +53,9 @@ filesys_init (bool format)
 void
 filesys_done (void) 
 {
-  filesys_cache_writeback();
-
   free_map_close ();
+
+  filesys_cache_writeback();
 }
 
 /* Creates a file named NAME with the given INITIAL_SIZE.

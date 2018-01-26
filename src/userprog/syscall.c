@@ -472,7 +472,8 @@ syscall_remove(const char *file_name){
 
 /* opens the file file_name, returns non-negative file descriptor for
    the opened file if succesful, -1 otherwise */
-int syscall_open(const char *file_name){
+int
+syscall_open(const char *file_name){
   int length = validate_string(file_name);
   lock_acquire(&lock_filesystem);
   struct file *new_file = filesys_open(file_name);
@@ -487,16 +488,17 @@ int syscall_open(const char *file_name){
   struct inode *inode = file_get_inode(new_file);
   if (inode == NULL || !inode_is_directory(inode)) {
     current_entry->dir = NULL;
+    current_entry->file = new_file;
   } else {
     struct inode *new_inode = inode_reopen(inode);
     current_entry->dir = dir_open(new_inode);
+    current_entry->file = NULL;
   }
 
   struct thread *t = thread_current();
   int current_fd = t->current_fd;
   t->current_fd += 1;
   current_entry->fd = current_fd;
-  current_entry->file = new_file;
   list_push_back (&t->file_list, &current_entry->elem);
   lock_release(&lock_filesystem);
   return current_fd;

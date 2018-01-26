@@ -800,9 +800,16 @@ clear_files(){
       struct file_entry *f = list_entry (iterator, struct file_entry, elem);
       if (f->file != NULL){
         file_close(f->file);
+        //printf("DEBUG: file was closed\n");
+        ASSERT(f->dir == NULL);
       } else if (f->dir != NULL){
+        //printf("DEBUG: open count before close in termination: %i\n", inode_get_open_count(dir_get_inode(f->dir)));
         dir_close(f->dir);
-      } 
+        //printf("DEBUG: open count after close in termination: %i\n", inode_get_open_count(dir_get_inode(f->dir)));
+        ASSERT(f->file == NULL);
+      } else {
+        //PANIC("DEBUG: descriptor has no file and no dir set\n");
+      }
       struct list_elem *removeElem = iterator; 
       iterator = list_next(iterator);
       list_remove (removeElem);
