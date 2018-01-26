@@ -196,7 +196,32 @@ dir_open_path(const char* path)
 bool
 dir_create_root (block_sector_t sector, size_t entry_cnt)
 {
-  return inode_create (sector, entry_cnt * sizeof (struct dir_entry), true);
+  bool success = inode_create (sector, entry_cnt * sizeof (struct dir_entry), true);
+
+  struct inode *root_inode = inode_open (sector);
+  struct dir *root = dir_open (root_inode);
+  if (root == NULL)
+    return NULL;
+  struct dir_entry current;
+  current.in_use = true;
+  current.inode_sector = root_inode->sector;
+  char *current_name = "."; 
+  strlcpy (current.name, current_name, sizeof current.name);
+  /* wirte own directory to first position */
+  if(!inode_write_at(root->inode, &current, sizeof current, 0)){
+    return false;
+  }
+  struct dir_entry parent;
+  parent.in_use = true;
+  parent.inode_sector = root_inode->sector;
+  char *parent_name = "..";
+  strlcpy (parent.name, parent_name, sizeof parent.name);
+  /* wirte parent to second position in directory; first one is own directory */
+  if(!inode_write_at(root->inode, &parent, sizeof parent, sizeof parent)){
+    return false;
+  }
+
+  return success;
 }
 
 /* Opens and returns the directory for the given INODE, of which
@@ -226,6 +251,7 @@ dir_open_root (void)
 {
   struct inode *root_inode = inode_open (ROOT_DIR_SECTOR);
   struct dir *root = dir_open (root_inode);
+  /*
   if (root == NULL)
     return NULL;
   struct dir_entry current;
@@ -234,6 +260,7 @@ dir_open_root (void)
   char *current_name = "."; 
   strlcpy (current.name, current_name, sizeof current.name);
   /* wirte own directory to first position */
+  /*
   if(!inode_write_at(root->inode, &current, sizeof current, 0)){
     return NULL;
   }
@@ -243,9 +270,11 @@ dir_open_root (void)
   char *parent_name = "..";
   strlcpy (parent.name, parent_name, sizeof parent.name);
   /* wirte parent to second position in directory; first one is own directory */
+  /*
   if(!inode_write_at(root->inode, &parent, sizeof parent, sizeof parent)){
     return NULL;
   }
+  */
 
   return root;
 }
