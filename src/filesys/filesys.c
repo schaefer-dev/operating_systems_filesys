@@ -77,6 +77,7 @@ filesys_create (const char *name, off_t initial_size, bool directory)
     return false;
   printf("DEBUG: filesys create filename not null\n");
   struct dir *dir = NULL;
+  /*
   if (path == NULL){
     printf("DEBUG: filesys create path is null\n");
     //TODO: open current working directory
@@ -84,6 +85,7 @@ filesys_create (const char *name, off_t initial_size, bool directory)
     if (dir == NULL)
       return false;
   }
+  */
   dir = dir_open_path(path);
   /* TODO: create directory at this point?? */
   /*TODO: add self as first entry in directory in case of directory */
@@ -112,12 +114,14 @@ filesys_open (const char *name)
   if (filename == NULL)
     return NULL;
   struct dir *dir = NULL;
+  /*
   if (path == NULL){
     //TODO: open current working directory
     dir = dir_reopen(thread_current()->current_working_dir);
     if (dir == NULL)
       return NULL;
   }
+  */
   dir = dir_open_path(path);
   struct inode *inode = NULL;
 
@@ -146,6 +150,7 @@ filesys_remove (const char *name)
     if (dir == NULL)
       return false;
   }
+  dir = dir_open_path(path);
   bool success = dir != NULL && dir_remove (dir, filename);
   dir_close (dir); 
 

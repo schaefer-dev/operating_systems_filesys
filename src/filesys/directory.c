@@ -128,7 +128,14 @@ dir_get_file_name (const char* name)
 struct dir*
 dir_open_path(const char* path)
 {
-  ASSERT(path != NULL);
+  //ASSERT(path != NULL);
+  if (path == NULL){
+    //TODO: open current working directory
+    if (thread_current()->current_working_dir == NULL){
+      return dir_open_root();		
+    } else
+        return dir_reopen(thread_current()->current_working_dir);
+  }
 
   int name_length = strlen(path);
 
