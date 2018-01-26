@@ -70,13 +70,14 @@ filesys_create (const char *name, off_t initial_size, bool directory)
   char* path = dir_get_path(name);
   //printf("DEBUG: get path returns:'%s'\n", path);
   char* filename = dir_get_file_name(name);
-  //printf("DEBUG: get filename returns:'%s'\n", filename);
   // TODO: free char*
   //printf("DEBUG: Filesys_create called with path: '%s' and filename: '%s'\n", path, filename);
   if (filename == NULL)
     return false;
   //printf("DEBUG: filesys create filename not null\n");
   struct dir *dir = NULL;
+  if (strlen(filename) > NAME_MAX)
+      return false;
   /*
   if (path == NULL){
     printf("DEBUG: filesys create path is null\n");
@@ -130,6 +131,12 @@ filesys_open (const char *name)
   if (dir != NULL)
     dir_lookup (dir, filename, &inode);
   dir_close (dir);
+
+  /* double check if inode has been removed already */
+  if (inode_is_removed(inode)) {
+    return NULL;
+  }
+
   //printf("DEBUG: filesys open finished\n");
   return file_open (inode);
 }

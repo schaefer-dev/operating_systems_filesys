@@ -331,10 +331,11 @@ load (const char *file_name, void (**eip) (void), void **esp, char* argument_buf
   process_activate ();
 
   /* Open executable file. */
-  lock_acquire(&lock_filesystem);
+  ock_acquire(&lock_filesystem);
   file = filesys_open (file_name);
   if (file == NULL) 
     {
+      //TODO file_close has an issue, if its passed null
       file_close (file);
       printf ("load: %s: open failed\n", file_name);
       goto done; 

@@ -13,5 +13,7 @@ test_main (void)
   memset (name, 'x', sizeof name);
   name[sizeof name - 1] = '\0';
   
+  //msg("DEBUG: create start\n");
   msg ("create(\"x...\"): %d", create (name, 0));
+  //msg("DEBUG: create end\n");
 }
