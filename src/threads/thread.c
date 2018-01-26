@@ -14,6 +14,7 @@
 #include "threads/malloc.h"
 #include "filesys/file.h"
 #include "userprog/syscall.h"
+#include "filesys/directory.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -202,6 +203,13 @@ thread_create (const char *name, int priority,
   /* call add_child to create this process as a 
      child process and set parent to parent thread */
   t->child_process = add_child(tid, thread_tid());
+
+  struct thread *current_thread = thread_current();
+  if (current_thread->current_working_dir != NULL){
+      t->current_working_dir = dir_reopen(current_thread->current_working_dir);
+  } else {
+      t->current_working_dir = NULL;
+  }
 
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame (t, sizeof *kf);
