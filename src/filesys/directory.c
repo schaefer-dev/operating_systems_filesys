@@ -5,6 +5,7 @@
 #include "filesys/filesys.h"
 #include "filesys/inode.h"
 #include "threads/malloc.h"
+#include "threads/thread.h"
 
 /* A directory. */
 struct dir 
@@ -125,23 +126,22 @@ dir_get_file_name (const char* name)
 }
 
 struct dir*
-dir_open_path(char* path)
+dir_open_path(const char* path)
 {
   ASSERT(path != NULL);
 
-  // TODO: check if this is correct
-  if (path.name_length==0){
+  int name_length = strlen(path);
+
+  if (name_length==0){
     return NULL;
   }
 
   struct dir *current_dir = NULL;
 
-  int name_length = strlen(name);
-
   char *temp = malloc(sizeof(char) * (name_length + 1));
 
   /* to make sure that last token is not null */
-  strlcpy(temp, name, name_length + 1);
+  strlcpy(temp, path, name_length + 1);
   temp[name_length] = ' ';
   temp[name_length+1] = '\0';
 
@@ -230,22 +230,24 @@ dir_open_root (void)
     return NULL;
   struct dir_entry current;
   current.in_use = true;
-  current.inode_sector = root_inode->inode_sector;
-  parent.name = ".";
+  current.inode_sector = root_inode->sector;
+  char *current_name = "."; 
+  strlcpy (current.name, current_name, sizeof current.name);
   /* wirte own directory to first position */
-  if(!inode_write_at(child_dir->inode, &current, sizeof current, 0)){
+  if(!inode_write_at(root->inode, &current, sizeof current, 0)){
     return NULL;
   }
   struct dir_entry parent;
   parent.in_use = true;
-  parent.inode_sector = root_inode->inode_sector;
-  parent.name = "..";
+  parent.inode_sector = root_inode->sector;
+  char *parent_name = "..";
+  strlcpy (parent.name, parent_name, sizeof parent.name);
   /* wirte parent to second position in directory; first one is own directory */
-  if(!inode_write_at(child_dir->inode, &parent, sizeof parent, sizeof parent)){
+  if(!inode_write_at(root->inode, &parent, sizeof parent, sizeof parent)){
     return NULL;
   }
 
-  return dir;
+  return root;
 }
 
 /* Opens and returns a new directory for the same inode as DIR.
@@ -360,7 +362,8 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector, bool di
     struct dir_entry current;
     current.in_use = true;
     current.inode_sector = inode_sector;
-    current.name = ".";
+    char *current_name = ".";
+    strlcpy (current.name, current_name, sizeof current.name);
     /* wirte parent to second position in directory; first one is own directory */
     if(!inode_write_at(child_dir->inode, &current, sizeof current, 0)){
       dir_close(child_dir);
@@ -370,8 +373,9 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector, bool di
     struct dir_entry parent;
     parent.in_use = true;
     struct inode *parent_inode = dir->inode;
-    parent.inode_sector = parent_inode->inode_sector;
-    parent.name = "..";
+    parent.inode_sector = parent_inode->sector;
+    char *parent_name = "..";
+    strlcpy (parent.name, parent_name, sizeof parent.name);
     /* wirte parent to second position in directory; first one is own directory */
     if(!inode_write_at(child_dir->inode, &parent, sizeof parent, sizeof parent)){
       dir_close(child_dir);
@@ -452,7 +456,7 @@ dir_readdir (struct dir *dir, char name[NAME_MAX + 1])
   while (inode_read_at (dir->inode, &e, sizeof e, dir->pos) == sizeof e) 
     {
       dir->pos += sizeof e;
-      if (e.in_use && (ofs >= (2*(sizeof e))))
+      if (e.in_use && ((dir->pos) >= (2*(sizeof e))))
         {
           strlcpy (name, e.name, NAME_MAX + 1);
           return true;

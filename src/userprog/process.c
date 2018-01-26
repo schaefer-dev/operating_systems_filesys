@@ -108,6 +108,7 @@ start_process (void *file_name_)
   /* update the child process structure of this process */
   struct thread *child_thread = thread_current();
   struct child_process *child_process = child_thread->child_process;
+  child_thread->current_working_dir = dir_open_root();
 
   lock_acquire(&child_process->child_process_lock);
 

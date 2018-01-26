@@ -26,7 +26,7 @@ bool dir_lookup (const struct dir *, const char *name, struct inode **);
 bool dir_add (struct dir *, const char *name, block_sector_t, bool);
 bool dir_remove (struct dir *, const char *name);
 bool dir_readdir (struct dir *, char name[NAME_MAX + 1]);
-struct dir* dir_open_path(char *);
+struct dir* dir_open_path(const char *);
 char* dir_get_file_name (const char *);
 char* dir_get_path (const char *);
 
