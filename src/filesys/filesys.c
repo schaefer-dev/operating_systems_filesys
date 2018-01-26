@@ -62,7 +62,6 @@ filesys_done (void)
    Returns true if successful, false otherwise.
    Fails if a file named NAME already exists,
    or if internal memory allocation fails. */
-//TODO: rename is_directory in directory
 bool
 filesys_create (const char *name, off_t initial_size, bool directory) 
 {

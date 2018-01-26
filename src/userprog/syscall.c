@@ -14,6 +14,8 @@
 #include "filesys/filesys.h"
 #include "filesys/file.h"
 #include "userprog/pagedir.h"
+#include "filesys/directory.h"
+#include "filesys/inode.h"
 
 static void syscall_handler (struct intr_frame *);
 
@@ -39,6 +41,11 @@ void syscall_seek(int fd, unsigned position);
 unsigned syscall_tell(int fd);
 void syscall_close(int fd);
 struct list_elem* get_list_elem(int fd);
+bool syscall_mkdir(const char *dir_name);
+bool syscall_chdir(const char *dir_name);
+bool syscall_readdir(int fd, const char *dir_name);
+bool syscall_isdir(int fd);
+int syscall_inumber(int fd);
 
 
 void
@@ -175,24 +182,42 @@ syscall_handler (struct intr_frame *f UNUSED)
       break;
 
     case SYS_CHDIR:
-      // project 4
-      break;
+      {
+        char *dir_name= *((char**) read_argument_at_index(f,0));
+        validate_pointer(dir_name);
+        f->eax = syscall_chdir(dir_name);
+        break;
+      }
 
     case SYS_MKDIR:
-      // project 4
-      break;
+      {
+        char *dir_name= *((char**) read_argument_at_index(f,0));
+        validate_pointer(dir_name);
+        f->eax = syscall_mkdir(dir_name);
+        break;
+      }
 
     case SYS_READDIR:
-      // project 4
-      break;
+      {
+        int fd = *((int*)read_argument_at_index(f,0)); 
+        char *dir_name = *((char**)read_argument_at_index(f,sizeof(int)));
+        f->eax = syscall_readdir(fd, dir_name);
+        break;
+      }
 
     case SYS_ISDIR:
-      // project 4
-      break;
+      {
+        int fd = *((int*)read_argument_at_index(f,0)); 
+        f->eax = syscall_isdir(fd);
+        break;
+      }
 
     case SYS_INUMBER:
-      // project 4
-      break;
+      {
+        int fd = *((int*)read_argument_at_index(f,0)); 
+        f->eax = syscall_inumber(fd);
+        break;
+      }
 
     default:
       {
@@ -573,3 +598,87 @@ void syscall_close(int fd){
   lock_release(&lock_filesystem);
 }
 
+/* changes the directory of current thread to dir_name */
+bool syscall_chdir(const char *dir_name)
+{
+  bool success;
+
+  lock_acquire(&lock_filesystem);
+  success = filesys_chdir(dir_name);
+  lock_release(&lock_filesystem);
+
+  return success;
+}
+
+/* create the directory dir_name in the current working dir */
+bool syscall_mkdir(const char *dir_name)
+{
+  bool success;
+
+  lock_acquire(&lock_filesystem);
+  // TODO check if size 0 is fine, but should be ok
+  success = filesys_create(dir_name, 0, true);
+  lock_release(&lock_filesystem);
+
+  return success;
+}
+
+bool
+syscall_readdir(int fd, const char *dir_name)
+{
+  bool success = false;
+  lock_acquire(&lock_filesystem);
+  struct file *file = get_file(fd);
+  if (file == NULL)
+    goto done;
+
+  struct inode *inode = file_get_inode(file);
+  if (inode == NULL || !inode_is_directory(inode))
+    goto done;
+
+  // TODO not sure how to get dir here correctly, might be wrong
+  struct dir *dir = dir_open(inode);
+  
+  success = dir_readdir(dir, dir_name);
+
+
+ done:
+  lock_release(&lock_filesystem);
+  return success;
+}
+
+bool
+syscall_isdir(int fd)
+{
+  bool success;
+
+  lock_acquire(&lock_filesystem);
+  struct file *file = get_file(fd);
+  if (file == NULL)
+    return false;
+  struct inode *inode = file_get_inode(file);
+  if (inode == NULL)
+    return false;
+
+  success = inode_is_directory(inode);
+  lock_release(&lock_filesystem);
+  return success;
+}
+
+int
+syscall_inumber(int fd)
+{
+  int inumber;
+
+  lock_acquire(&lock_filesystem);
+  struct file *file = get_file(fd);
+  if (file == NULL)
+    return false;
+  struct inode *inode = file_get_inode(file);
+  if (inode == NULL)
+    return false;
+
+  inumber = inode_get_inumber(inode);
+  lock_release(&lock_filesystem);
+  return inumber;
+}
