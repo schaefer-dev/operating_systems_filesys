@@ -109,8 +109,9 @@ start_process (void *file_name_)
   /* update the child process structure of this process */
   struct thread *child_thread = thread_current();
   struct child_process *child_process = child_thread->child_process;
-  child_thread->current_working_dir = dir_open_root();
-
+  if (!child_thread->current_working_dir){
+    child_thread->current_working_dir = dir_open_root();
+  }
   lock_acquire(&child_process->child_process_lock);
 
   /* set load value of child_process after load is finished */
