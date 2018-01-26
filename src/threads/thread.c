@@ -800,7 +800,9 @@ clear_files(){
       struct file_entry *f = list_entry (iterator, struct file_entry, elem);
       if (f->file != NULL){
         file_close(f->file);
-      }
+      } else if (f->dir != NULL){
+        dir_close(f->dir);
+      } 
       struct list_elem *removeElem = iterator; 
       iterator = list_next(iterator);
       list_remove (removeElem);
