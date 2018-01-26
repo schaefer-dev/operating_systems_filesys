@@ -140,9 +140,10 @@ dir_open_path(const char* path)
     if (thread_current()->current_working_dir == NULL){
       //printf("DEBUG: open path cwd is NULL \n");
       return dir_open_root();		
-    } else
-	//printf("DEBUG: open path cwd NOT NULL \n");
+    } else {
+      //printf("DEBUG: open path cwd NOT NULL \n");
         return dir_reopen(thread_current()->current_working_dir);
+    }
   }
 
   int name_length = strlen(path);
@@ -157,8 +158,6 @@ dir_open_path(const char* path)
 
   /* to make sure that last token is not null */
   strlcpy(temp, path, name_length + 1);
-  temp[name_length] = ' ';
-  temp[name_length+1] = '\0';
 
   if (temp[0] == '/'){
     /* absolute path */
@@ -178,17 +177,18 @@ dir_open_path(const char* path)
   char *pos;
   for (token = strtok_r(temp, "/", &pos); token != NULL; token = strtok_r(NULL, "/", &pos)) {
     int token_length = strlen(token);
+    //printf("DEBUG: token_iter in dir opening: '%s'\n", token);
     if (token_length > 0){
       struct inode *inode = NULL;
       if (!dir_lookup (current_dir, token, &inode)){
-        goto done;
+        goto invalid;
       }
       if (inode == NULL){
-        goto done;
+        goto invalid;
       }
       struct dir *next_dir = dir_open(inode);
       if (next_dir == NULL){
-        goto done;
+        goto invalid;
       }
       dir_close(current_dir);
       current_dir = next_dir;
@@ -197,11 +197,13 @@ dir_open_path(const char* path)
 
   //TODO: could be necessary to check if inode is already removed
   free(temp);
+  //printf("DEBUG: dir_open_path returned successful\n");
   return current_dir;
 
-  done:
+  invalid:
   dir_close(current_dir);
   free(temp);
+  //printf("DEBUG: dir_open_path invalid\n");
   return NULL;
 }
 

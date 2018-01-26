@@ -72,6 +72,7 @@ filesys_create (const char *name, off_t initial_size, bool directory)
   char* filename = dir_get_file_name(name);
   //printf("DEBUG: get filename returns:'%s'\n", filename);
   // TODO: free char*
+  //printf("DEBUG: Filesys_create called with path: '%s' and filename: '%s'\n", path, filename);
   if (filename == NULL)
     return false;
   //printf("DEBUG: filesys create filename not null\n");
