@@ -508,3 +508,20 @@ dir_readdir (struct dir *dir, char name[NAME_MAX + 1])
     }
   return false;
 }
+
+/* Checks if directory is empty */
+bool
+dir_is_empty (struct dir *dir)
+{
+  struct dir_entry e;
+
+  while (inode_read_at (dir->inode, &e, sizeof e, dir->pos) == sizeof e) 
+    {
+      dir->pos += sizeof e;
+      if (e.in_use && ((dir->pos) >= (2*(sizeof e))))
+        {
+          return false;
+        } 
+    }
+  return true;
+}
