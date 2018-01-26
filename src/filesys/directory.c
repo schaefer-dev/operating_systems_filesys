@@ -477,6 +477,18 @@ dir_remove (struct dir *dir, const char *name)
   if (inode == NULL)
     goto done;
 
+  if (inode->directory){
+    struct dir *delete_dir = dir_open(inode);
+    if(!dir_is_empty(delete_dir)){
+      /* directory is not empty and cannot be removed */
+      dir_close(delete_dir);
+      goto done;
+    } else {
+      /* inode has to be removed and entry has to be set to not in use */
+      dir_close(delete_dir);
+    }
+  }
+
   /* Erase directory entry. */
   e.in_use = false;
   if (inode_write_at (dir->inode, &e, sizeof e, ofs) != sizeof e) 

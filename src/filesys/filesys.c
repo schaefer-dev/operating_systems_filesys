@@ -146,12 +146,6 @@ filesys_remove (const char *name)
   if (filename == NULL)
     return false;
   struct dir *dir = NULL;
-  if (path == NULL){
-    //TODO: open current working directory
-    dir = dir_reopen(thread_current()->current_working_dir);
-    if (dir == NULL)
-      return false;
-  }
   dir = dir_open_path(path);
   bool success = dir != NULL && dir_remove (dir, filename);
   dir_close (dir); 
