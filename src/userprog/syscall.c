@@ -673,7 +673,7 @@ syscall_readdir(int fd, const char *dir_name)
 
   struct file *file = file_entry->file;
   struct inode *inode = file_get_inode(file);
-  if (inode == NULL || !inode_is_directory(inode))
+  if (inode == NULL || !inode_is_directory(inode) || inode_is_removed(inode))
     goto done;
 
   // TODO not sure how to get dir here correctly, might be wrong
@@ -699,7 +699,7 @@ syscall_isdir(int fd)
   }
 
   struct inode *inode = file_get_inode(file);
-  if (inode == NULL){
+  if (inode == NULL || inode_is_removed(inode)){
     goto done;
   }
 
@@ -720,7 +720,7 @@ syscall_inumber(int fd)
   if (file == NULL)
     goto done;
   struct inode *inode = file_get_inode(file);
-  if (inode == NULL)
+  if (inode == NULL || inode_is_removed(inode))
     goto done;
 
   inumber = inode_get_inumber(inode);
