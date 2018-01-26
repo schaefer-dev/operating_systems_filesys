@@ -37,6 +37,7 @@ bool check_file_name(const char *file_name);
 int syscall_open(const char *file_name);
 int syscall_filesize(int fd);
 struct file* get_file(int fd);
+struct file_entry* get_file_entry(int fd);
 void syscall_seek(int fd, unsigned position);
 unsigned syscall_tell(int fd);
 void syscall_close(int fd);
@@ -322,7 +323,7 @@ syscall_exit(const int exit_type){
 int
 syscall_write(int fd, const void *buffer, unsigned size){
 
-  int returnvalue = 0;
+  int returnvalue = -1;
 
   /* check if the entire buffer is valid */
   validate_buffer(buffer,size);
@@ -339,7 +340,7 @@ syscall_write(int fd, const void *buffer, unsigned size){
     
     // check if file NULL
     if (file_ == NULL){
-      returnvalue = 0;
+      returnvalue = -1;
     }else{
       lock_acquire(&lock_filesystem);
       returnvalue = file_write(file_, buffer, size);
@@ -386,7 +387,7 @@ syscall_read(int fd, void *buffer, unsigned size){
     
     // check if file NULL
     if (file_ == NULL){
-      returnvalue = 0;
+      returnvalue = -1;
     }else{
       lock_acquire(&lock_filesystem);
       returnvalue = file_read(file_, buffer, size);
@@ -448,8 +449,6 @@ syscall_exec(const char *cmd_line){
 bool
 syscall_create(const char *file_name, unsigned initial_size){
   int length = validate_string(file_name);
-  if (length > max_file_name)
-    return false;
   lock_acquire(&lock_filesystem);
   //TODO: change this to create files probably only done in mkdir syscall
   bool success = filesys_create(file_name, initial_size, false);
@@ -462,8 +461,6 @@ syscall_create(const char *file_name, unsigned initial_size){
 bool
 syscall_remove(const char *file_name){
   int length = validate_string(file_name);
-  if (length > max_file_name)
-    return false;
   lock_acquire(&lock_filesystem);
   bool success = filesys_remove(file_name);
   lock_release(&lock_filesystem);
@@ -474,18 +471,27 @@ syscall_remove(const char *file_name){
    the opened file if succesful, -1 otherwise */
 int syscall_open(const char *file_name){
   int length = validate_string(file_name);
-  if (length > max_file_name)
-    return -1;
   lock_acquire(&lock_filesystem);
   struct file *new_file = filesys_open(file_name);
   if (new_file == NULL){
     lock_release(&lock_filesystem);
     return -1;
   }
+
+  struct file_entry *current_entry = malloc(sizeof(struct file_entry));
+
+  /* new special cases in case file_name is directory */
+  struct inode *inode = file_get_inode(new_file);
+  if (inode == NULL || !inode_is_directory(inode)) {
+    current_entry->dir = NULL;
+  } else {
+    struct inode *new_inode = inode_reopen(inode);
+    current_entry->dir = dir_open(new_inode);
+  }
+
   struct thread *t = thread_current();
   int current_fd = t->current_fd;
   t->current_fd += 1;
-  struct file_entry *current_entry = malloc(sizeof(struct file_entry));
   current_entry->fd = current_fd;
   current_entry->file = new_file;
   list_push_back (&t->file_list, &current_entry->elem);
@@ -507,7 +513,7 @@ int syscall_filesize(int fd){
 }
 
 
-/* searchs the file in current thread */
+/* searchs the file in current thread (does NOT return directories) */
 struct file*
 get_file(int fd){
   struct thread *t = thread_current();
@@ -520,8 +526,13 @@ get_file(int fd){
 
   while (iterator != list_end (open_files)){
       struct file_entry *f = list_entry (iterator, struct file_entry, elem);
-      if (f->fd == fd)
-        return f->file;
+      if (f->fd == fd){
+        /* only return file_entry if also no directory */
+        if (f->dir == NULL)
+          return f->file;
+        else
+          return NULL;
+      }
       iterator = list_next(iterator);
   }
   return NULL;
@@ -543,6 +554,27 @@ get_list_elem(int fd){
       struct file_entry *f = list_entry (iterator, struct file_entry, elem);
       if (f->fd == fd)
         return iterator;
+      iterator = list_next(iterator);
+  }
+  return NULL;
+}
+
+/* searchs the file in current thread and returns file_entry */
+struct file_entry*
+get_file_entry(int fd){
+  struct thread *t = thread_current();
+  struct list *open_files= &(t->file_list);
+  
+  if (list_empty(open_files))
+      return NULL;
+
+  struct list_elem *iterator = list_begin (open_files);
+
+
+  while (iterator != list_end(open_files)){
+      struct file_entry *f = list_entry (iterator, struct file_entry, elem);
+      if (f->fd == fd)
+        return f;
       iterator = list_next(iterator);
   }
   return NULL;
@@ -592,7 +624,11 @@ void syscall_close(int fd){
     return;
   }
 
-  file_close(f->file);
+  // TODO think about this, if file doesnt have to always be closed!
+  if (f->dir != NULL)
+    dir_close(f->dir);
+  else
+    file_close(f->file);
   list_remove (element);
   free(f);
   lock_release(&lock_filesystem);
@@ -628,10 +664,11 @@ syscall_readdir(int fd, const char *dir_name)
 {
   bool success = false;
   lock_acquire(&lock_filesystem);
-  struct file *file = get_file(fd);
-  if (file == NULL)
+  struct file_entry *file_entry = get_file_entry(fd);
+  if (file_entry == NULL || file_entry->dir == NULL)
     goto done;
 
+  struct file *file = file_entry->file;
   struct inode *inode = file_get_inode(file);
   if (inode == NULL || !inode_is_directory(inode))
     goto done;

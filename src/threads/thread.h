@@ -134,6 +134,7 @@ struct thread
 struct file_entry
   {
     struct file *file;
+    struct dir *dir;
     int fd;
     struct list_elem elem; 
   };
