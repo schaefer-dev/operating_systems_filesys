@@ -20,24 +20,24 @@ static void do_format (void);
 void
 filesys_init (bool format) 
 {
-  printf("DEBUG: filesys init called 1\n");
+  //printf("DEBUG: filesys init called 1\n");
   fs_device = block_get_role (BLOCK_FILESYS);
   if (fs_device == NULL)
     PANIC ("No file system device found, can't initialize file system.");
 
-  printf("DEBUG: filesys init called 2\n");
+  //printf("DEBUG: filesys init called 2\n");
 
   inode_init ();
 
-  printf("DEBUG: filesys init called 3\n");
+  //printf("DEBUG: filesys init called 3\n");
 
   free_map_init ();
 
-  printf("DEBUG: filesys init called 4\n");
+  //printf("DEBUG: filesys init called 4\n");
 
   filesys_cache_init();
 
-  printf("DEBUG: filesys init called 5\n");
+  //printf("DEBUG: filesys init called 5\n");
 
   if (format){
     printf("DEBUG: format called\n");
@@ -111,8 +111,10 @@ filesys_open (const char *name)
   //printf("DEBUG: filesys open called\n");
   char* path = dir_get_path(name);
   char* filename = dir_get_file_name(name);
+  //printf("DEBUG: filesys open called 1 \n");
   if (filename == NULL)
     return NULL;
+  //printf("DEBUG: filesys open filename not null\n");
   struct dir *dir = NULL;
   /*
   if (path == NULL){

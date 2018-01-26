@@ -32,6 +32,9 @@ dir_get_path (const char* name)
   //bool is_absolute_path = false;
   int name_length = strlen(name);
 
+  if (name_length == 0)
+    return NULL;
+
   char *temp = malloc(sizeof(char) * (name_length + 1));
 
   // TODO make sure that this output is freed in all cases!
@@ -88,6 +91,9 @@ dir_get_file_name (const char* name)
 {
   ASSERT(name != NULL);
   int name_length = strlen(name);
+
+  if (name_length == 0)
+    return NULL;
 
   char *temp = malloc(sizeof(char) * (name_length + 1));
 
