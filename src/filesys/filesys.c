@@ -40,9 +40,9 @@ filesys_init (bool format)
   //printf("DEBUG: filesys init called 5\n");
 
   if (format){
-    printf("DEBUG: format called\n");
+    //printf("DEBUG: format called\n");
     do_format ();
-    printf("DEBUG: format finished\n");
+    //printf("DEBUG: format finished\n");
   }
 
   free_map_open ();

@@ -154,10 +154,10 @@ dir_open_path(const char* path)
 
   struct dir *current_dir = NULL;
 
-  char *temp = malloc(sizeof(char) * (name_length + 1));
+  char *temp = malloc(sizeof(char) * (name_length));
 
   /* to make sure that last token is not null */
-  strlcpy(temp, path, name_length + 1);
+  strlcpy(temp, path, name_length);
 
   if (temp[0] == '/'){
     /* absolute path */
@@ -171,6 +171,8 @@ dir_open_path(const char* path)
       current_dir = dir_open_root();
     }
   }
+
+  ASSERT(current_dir != NULL);
 
   /* change directory step by step based on path */
   char *token = "";
@@ -223,23 +225,25 @@ dir_create_root (block_sector_t sector, size_t entry_cnt)
   bool success = inode_create (sector, entry_cnt * sizeof (struct dir_entry), true);
 
   struct inode *root_inode = inode_open (sector);
+  if (root_inode == NULL)
+    return false;
   struct dir *root = dir_open (root_inode);
   if (root == NULL)
-    return NULL;
+    return false;
   struct dir_entry current;
-  current.in_use = true;
-  current.inode_sector = root_inode->sector;
   char *current_name = "."; 
   strlcpy (current.name, current_name, sizeof current.name);
+  current.in_use = true;
+  current.inode_sector = root_inode->sector;
   /* wirte own directory to first position */
   if(!inode_write_at(root->inode, &current, sizeof current, 0)){
     return false;
   }
   struct dir_entry parent;
-  parent.in_use = true;
-  parent.inode_sector = root_inode->sector;
   char *parent_name = "..";
   strlcpy (parent.name, parent_name, sizeof parent.name);
+  parent.in_use = true;
+  parent.inode_sector = root_inode->sector;
   /* wirte parent to second position in directory; first one is own directory */
   if(!inode_write_at(root->inode, &parent, sizeof parent, sizeof parent)){
     return false;
@@ -275,30 +279,6 @@ dir_open_root (void)
 {
   struct inode *root_inode = inode_open (ROOT_DIR_SECTOR);
   struct dir *root = dir_open (root_inode);
-  /*
-  if (root == NULL)
-    return NULL;
-  struct dir_entry current;
-  current.in_use = true;
-  current.inode_sector = root_inode->sector;
-  char *current_name = "."; 
-  strlcpy (current.name, current_name, sizeof current.name);
-  /* wirte own directory to first position */
-  /*
-  if(!inode_write_at(root->inode, &current, sizeof current, 0)){
-    return NULL;
-  }
-  struct dir_entry parent;
-  parent.in_use = true;
-  parent.inode_sector = root_inode->sector;
-  char *parent_name = "..";
-  strlcpy (parent.name, parent_name, sizeof parent.name);
-  /* wirte parent to second position in directory; first one is own directory */
-  /*
-  if(!inode_write_at(root->inode, &parent, sizeof parent, sizeof parent)){
-    return NULL;
-  }
-  */
 
   return root;
 }
@@ -413,10 +393,10 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector, bool di
 
     /* add directory itself as directory entry to directory */
     struct dir_entry current;
-    current.in_use = true;
-    current.inode_sector = inode_sector;
     char *current_name = ".";
     strlcpy (current.name, current_name, sizeof e.name);
+    current.in_use = true;
+    current.inode_sector = inode_sector;
     /* wirte parent to second position in directory; first one is own directory */
     if(inode_write_at(child_dir->inode, &current, sizeof e, 0) != sizeof e){
       dir_close(child_dir);
@@ -425,10 +405,10 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector, bool di
     /* add parent to directory */
     struct inode *parent_inode = dir->inode;
     struct dir_entry parent;
-    parent.in_use = true;
-    parent.inode_sector = parent_inode->sector;
     char *parent_name = "..";
     strlcpy (parent.name, parent_name, sizeof e.name);
+    parent.in_use = true;
+    parent.inode_sector = parent_inode->sector;
     /* wirte parent to second position in directory; first one is own directory */
     if(inode_write_at(child_dir->inode, &parent, sizeof e, sizeof e) != sizeof e){
       dir_close(child_dir);
@@ -494,7 +474,7 @@ dir_remove (struct dir *dir, const char *name)
   if (inode == NULL)
     goto done;
 
-  if (inode->directory != NULL){
+  if (inode->directory == true){
     struct dir *delete_dir = dir_open(inode);
     if(!dir_is_empty(delete_dir)){
       /* directory is not empty and cannot be removed */
