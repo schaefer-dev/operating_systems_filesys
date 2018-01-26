@@ -199,7 +199,7 @@ dir_open_path(const char* path)
   free(temp);
 
   /* double check if inode has been removed already */
-  if (inode_is_removed(current_dir->inode)) {
+  if (current_dir != NULL && current_dir->inode != NULL && inode_is_removed(current_dir->inode)) {
     dir_close(current_dir);
     return NULL;
   }

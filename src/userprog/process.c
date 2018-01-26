@@ -331,7 +331,7 @@ load (const char *file_name, void (**eip) (void), void **esp, char* argument_buf
   process_activate ();
 
   /* Open executable file. */
-  ock_acquire(&lock_filesystem);
+  lock_acquire(&lock_filesystem);
   file = filesys_open (file_name);
   if (file == NULL) 
     {

@@ -77,7 +77,7 @@ filesys_create (const char *name, off_t initial_size, bool directory)
   //printf("DEBUG: filesys create filename not null\n");
   struct dir *dir = NULL;
   if (strlen(filename) > NAME_MAX)
-      return false;
+    return false;
   /*
   if (path == NULL){
     printf("DEBUG: filesys create path is null\n");
@@ -133,8 +133,8 @@ filesys_open (const char *name)
   dir_close (dir);
 
   /* double check if inode has been removed already */
-  if (inode_is_removed(inode)) {
-    return NULL;
+  if (inode != NULL && inode_is_removed(inode)) {
+   return NULL;
   }
 
   //printf("DEBUG: filesys open finished\n");
