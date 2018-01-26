@@ -120,5 +120,7 @@ off_t inode_length (struct inode *);
 block_sector_t inode_parent (struct inode *);
 bool inode_is_directory (struct inode *);
 bool inode_is_removed (struct inode *);
+int inode_get_open_count(struct inode*);
+
 
 #endif /* filesys/inode.h */
