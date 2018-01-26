@@ -650,17 +650,22 @@ syscall_readdir(int fd, const char *dir_name)
 bool
 syscall_isdir(int fd)
 {
-  bool success;
-
+  bool success = false;
   lock_acquire(&lock_filesystem);
+
   struct file *file = get_file(fd);
-  if (file == NULL)
-    return false;
+  if (file == NULL){
+    goto done;
+  }
+
   struct inode *inode = file_get_inode(file);
-  if (inode == NULL)
-    return false;
+  if (inode == NULL){
+    goto done;
+  }
 
   success = inode_is_directory(inode);
+
+ done:
   lock_release(&lock_filesystem);
   return success;
 }
@@ -668,17 +673,19 @@ syscall_isdir(int fd)
 int
 syscall_inumber(int fd)
 {
-  int inumber;
+  int inumber = -1;
 
   lock_acquire(&lock_filesystem);
   struct file *file = get_file(fd);
   if (file == NULL)
-    return false;
+    goto done;
   struct inode *inode = file_get_inode(file);
   if (inode == NULL)
-    return false;
+    goto done;
 
   inumber = inode_get_inumber(inode);
+
+ done:
   lock_release(&lock_filesystem);
   return inumber;
 }
