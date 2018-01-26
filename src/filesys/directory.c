@@ -195,8 +195,15 @@ dir_open_path(const char* path)
     }
   }
 
-  //TODO: could be necessary to check if inode is already removed
+
   free(temp);
+
+  /* double check if inode has been removed already */
+  if (inode_is_removed(current_dir->inode)) {
+    dir_close(current_dir);
+    return NULL;
+  }
+
   //printf("DEBUG: dir_open_path returned successful\n");
   return current_dir;
 

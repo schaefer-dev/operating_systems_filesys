@@ -448,6 +448,9 @@ syscall_exec(const char *cmd_line){
    NOTE: it does not open the file! */
 bool
 syscall_create(const char *file_name, unsigned initial_size){
+  // TODO if we remove the string length test something goes wrong!
+  //if (strlen(file_name) > 14)
+  //  return false;
   int length = validate_string(file_name);
   lock_acquire(&lock_filesystem);
   //TODO: change this to create files probably only done in mkdir syscall
