@@ -94,6 +94,7 @@ filesys_create (const char *name, off_t initial_size, bool directory)
                   && free_map_allocate (1, &inode_sector)
                   && inode_create (inode_sector, initial_size, directory)
                   && dir_add (dir, filename, inode_sector, directory));
+  printf("DEBUG: inode sector of created block: %i\n", inode_sector);
   if (!success && inode_sector != 0) 
     free_map_release (inode_sector, 1);
   dir_close (dir);
@@ -109,13 +110,13 @@ filesys_create (const char *name, off_t initial_size, bool directory)
 struct file *
 filesys_open (const char *name)
 {
-  //printf("DEBUG: filesys open called\n");
+  printf("DEBUG: filesys open called with name:%s\n", name);
   char* path = dir_get_path(name);
   char* filename = dir_get_file_name(name);
   //printf("DEBUG: filesys open called 1 \n");
   if (filename == NULL)
     return NULL;
-  //printf("DEBUG: filesys open filename not null\n");
+  printf("DEBUG: filesys open filename:%s\n", filename);
   struct dir *dir = NULL;
   /*
   if (path == NULL){
@@ -126,6 +127,9 @@ filesys_open (const char *name)
   }
   */
   dir = dir_open_path(path);
+  if (dir == NULL)
+    printf("DEBUG: open dir is NULL");
+  printf("DEBUG:sector of dir in open%i\n", dir_get_inode(dir)->sector);
   struct inode *inode = NULL;
 
   if (dir != NULL)
@@ -136,6 +140,8 @@ filesys_open (const char *name)
   if (inode != NULL && inode_is_removed(inode)) {
    return NULL;
   }
+
+  printf("open with inode_sector:%i\n", inode->sector);
 
   //printf("DEBUG: filesys open finished\n");
   return file_open (inode);
@@ -165,9 +171,11 @@ filesys_remove (const char *name)
   does not exists */
 bool filesys_chdir (const char *name)
 {
+  printf("DEBUG: change dir to name: %s\n", name);
   if (name == NULL)
     return false;
   struct dir *new_cwd = dir_open_path(name);
+  printf("DEBUG: change dir to dir sector: %i\n", dir_get_inode(new_cwd)->sector);
 
   if(new_cwd == NULL)
     return false;

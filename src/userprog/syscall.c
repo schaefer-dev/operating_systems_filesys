@@ -485,6 +485,7 @@ int syscall_open(const char *file_name){
 
   /* new special cases in case file_name is directory */
   struct inode *inode = file_get_inode(new_file);
+  printf("DEBUG:inode sector of opened block: %i\n", inode->sector);
   if (inode == NULL || !inode_is_directory(inode)) {
     current_entry->dir = NULL;
   } else {

@@ -135,6 +135,7 @@ struct dir*
 dir_open_path(const char* path)
 {
   //ASSERT(path != NULL);
+  printf("DEBUG: open path with name:%s\n", path);
   if (path == NULL){
     //TODO: open current working directory
     if (thread_current()->current_working_dir == NULL){
@@ -154,16 +155,18 @@ dir_open_path(const char* path)
 
   struct dir *current_dir = NULL;
 
-  char *temp = malloc(sizeof(char) * (name_length));
+  char *temp = malloc(sizeof(char) * (name_length + 2));
 
   /* to make sure that last token is not null */
   strlcpy(temp, path, name_length);
 
   if (temp[0] == '/'){
     /* absolute path */
+    printf("DEBUG: open absolute path\n");
     current_dir = dir_open_root();
   } else {
     /* relative path */
+    printf("DEBUG: open relative path\n");
     struct thread *current_thread = thread_current();
     if (current_thread->current_working_dir != NULL){
       current_dir = dir_reopen(current_thread->current_working_dir);
@@ -172,26 +175,36 @@ dir_open_path(const char* path)
     }
   }
 
+  temp[name_length] = '/';
+  temp[name_length+1] = '\0';
+
+  printf("DEBUG: open path temp path name: %s\n", temp);
+
   ASSERT(current_dir != NULL);
 
   /* change directory step by step based on path */
   char *token = "";
   char *pos;
   for (token = strtok_r(temp, "/", &pos); token != NULL; token = strtok_r(NULL, "/", &pos)) {
+    printf("DEBUG: path open token:%s\n", token);
     int token_length = strlen(token);
     //printf("DEBUG: token_iter in dir opening: '%s'\n", token);
     if (token_length > 0){
       struct inode *inode = NULL;
       if (!dir_lookup (current_dir, token, &inode)){
+        printf("DEBUG: path not found\n");
         goto invalid;
       }
       if (inode == NULL){
+	printf("DEBUG: path open inode NULL\n");
         goto invalid;
       }
+      printf("DEBUG: path open token inode sector:%i\n", inode->sector);
       struct dir *next_dir = dir_open(inode);
       if (next_dir == NULL){
         goto invalid;
       }
+      printf("DEBUG: path open next dir sector:%i\n", dir_get_inode(next_dir)->sector);
       dir_close(current_dir);
       current_dir = next_dir;
     }
@@ -206,13 +219,13 @@ dir_open_path(const char* path)
     return NULL;
   }
 
-  //printf("DEBUG: dir_open_path returned successful\n");
+  printf("DEBUG: dir_open_path returned successful\n");
   return current_dir;
 
   invalid:
   dir_close(current_dir);
   free(temp);
-  //printf("DEBUG: dir_open_path invalid\n");
+  printf("DEBUG: dir_open_path invalid\n");
   return NULL;
 }
 
