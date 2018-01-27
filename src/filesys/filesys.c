@@ -127,6 +127,9 @@ filesys_open (const char *name)
 
   int name_length = strlen(name);
 
+  if (name_length == 0)
+     return NULL;
+
   char path [(name_length + 1)];
   char file_name [(name_length + 1)];
   int clear_iterator = 0;
