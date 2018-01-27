@@ -31,4 +31,6 @@ char* dir_get_file_name (const char *);
 char* dir_get_path (const char *);
 bool dir_is_empty (struct dir *dir);
 
+void parse_string_to_path_file(const char *string, char *path, char *file_name);
+
 #endif /* filesys/directory.h */

@@ -65,18 +65,24 @@ filesys_done (void)
 bool
 filesys_create (const char *name, off_t initial_size, bool directory) 
 {
+  if (name == NULL)
+    return false;
   //printf("DEBUG: filesys create called\n");
   block_sector_t inode_sector = 0;
-  char* path = dir_get_path(name);
+  int name_length = strlen(name);
+
+  char path [(name_length + 1)];
+  char file_name [(name_length + 1)];
+  parse_string_to_path_file(name, path, file_name);
+
   //printf("DEBUG: get path returns:'%s'\n", path);
-  char* filename = dir_get_file_name(name);
   // TODO: free char*
-  //printf("DEBUG: Filesys_create called with path: '%s' and filename: '%s'\n", path, filename);
-  if (filename == NULL)
+  //printf("DEBUG: Filesys_create called with path: '%s' and file_name: '%s'\n", path, file_name);
+  if (file_name == NULL)
     return false;
-  //printf("DEBUG: filesys create filename not null\n");
+  //printf("DEBUG: filesys create file_name not null\n");
   struct dir *dir = NULL;
-  if (strlen(filename) > NAME_MAX)
+  if (strlen(file_name) > NAME_MAX)
     return false;
   /*
   if (path == NULL){
@@ -93,7 +99,7 @@ filesys_create (const char *name, off_t initial_size, bool directory)
   bool success = (dir != NULL
                   && free_map_allocate (1, &inode_sector)
                   && inode_create (inode_sector, initial_size, directory)
-                  && dir_add (dir, filename, inode_sector, directory));
+                  && dir_add (dir, file_name, inode_sector, directory));
   if (!success && inode_sector != 0) 
     free_map_release (inode_sector, 1);
   dir_close (dir);
@@ -110,12 +116,19 @@ struct file *
 filesys_open (const char *name)
 {
   //printf("DEBUG: filesys open called\n");
-  char* path = dir_get_path(name);
-  char* filename = dir_get_file_name(name);
-  //printf("DEBUG: filesys open called 1 \n");
-  if (filename == NULL)
+  if (name == NULL)
     return NULL;
-  //printf("DEBUG: filesys open filename not null\n");
+
+  int name_length = strlen(name);
+
+  char path [(name_length + 1)];
+  char file_name [(name_length + 1)];
+  parse_string_to_path_file(name, path, file_name);
+
+  //printf("DEBUG: filesys open called 1 \n");
+  if (file_name == NULL)
+    return NULL;
+  //printf("DEBUG: filesys open file_name not null\n");
   struct dir *dir = NULL;
   /*
   if (path == NULL){
@@ -129,7 +142,7 @@ filesys_open (const char *name)
   struct inode *inode = NULL;
 
   if (dir != NULL)
-    dir_lookup (dir, filename, &inode);
+    dir_lookup (dir, file_name, &inode);
   dir_close (dir);
 
   /* double check if inode has been removed already */
@@ -148,13 +161,20 @@ filesys_open (const char *name)
 bool
 filesys_remove (const char *name) 
 {
-  char* path = dir_get_path(name);
-  char* filename = dir_get_file_name(name);
-  if (filename == NULL)
+  if (name == NULL)
+    return false;
+
+  int name_length = strlen(name);
+
+  char path [(name_length + 1)];
+  char file_name [(name_length + 1)];
+  parse_string_to_path_file(name, path, file_name);
+
+  if (file_name == NULL)
     return false;
   struct dir *dir = NULL;
   dir = dir_open_path(path);
-  bool success = dir != NULL && dir_remove (dir, filename);
+  bool success = dir != NULL && dir_remove (dir, file_name);
   dir_close (dir); 
 
   return success;
