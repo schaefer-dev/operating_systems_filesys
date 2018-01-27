@@ -43,16 +43,19 @@ void
 parse_string_to_path_file(const char *string, char *path, char *file_name)
 {
     bool is_absolute_path = false;
-    int string_length = strlen(string);
 
-    if (string_length == 0)
+    if (string == NULL || strlen(string) == 0)
       return;
+
+    int string_length = strlen(string);
 
     // TODO think about +1 here
     char *temp = malloc(sizeof(char) * (string_length + 1));
+    ASSERT(temp != NULL && string != NULL);
     memcpy(temp, string, sizeof(char) * (string_length + 1));
 
     /*  reference to continiously write into path string */
+    ASSERT(path != NULL);
     char *path_writer = path;
 
     if (temp[0] == '/'){
@@ -78,12 +81,15 @@ parse_string_to_path_file(const char *string, char *path, char *file_name)
       previous_token = token;
     }
 
+    ASSERT(file_name != NULL);
+
     *path_writer = '\0';
     int previous_token_length = 0;
-    if (previous_token != NULL)
+    if (previous_token != NULL){
       previous_token_length = strlen(previous_token);
+      memcpy(file_name, previous_token, sizeof(char) * previous_token_length + 1);
+    }
 
-    memcpy(file_name, previous_token, sizeof(char) * previous_token_length + 1);
     free(temp);
 }
 
