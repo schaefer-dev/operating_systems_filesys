@@ -696,7 +696,7 @@ syscall_isdir(int fd)
   if (file_entry == NULL)
     goto done;
 
-  if (file_entry->dir == NULL)}{
+  if (file_entry->dir == NULL){
     /* should be case file but to the sure */
     success = false;
     /* should not be needed */
@@ -709,7 +709,7 @@ syscall_isdir(int fd)
   } else {
     struct dir *dir = file_entry->dir;
     ASSERT(dir != NULL);
-    truct inode *inode = dir_get_inode(dir);
+    struct inode *inode = dir_get_inode(dir);
     if (inode == NULL || inode_is_removed(inode))
       goto done;
     success = inode_is_directory(inode);
