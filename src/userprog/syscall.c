@@ -674,13 +674,13 @@ syscall_readdir(int fd, const char *dir_name)
   if (file_entry == NULL || file_entry->dir == NULL)
     goto done;
 
-  struct file *file = file_entry->file;
-  struct inode *inode = file_get_inode(file);
+  struct dir *dir = file_entry->dir;
+  struct inode *inode = dir_get_inode(dir);
   if (inode == NULL || !inode_is_directory(inode) || inode_is_removed(inode))
     goto done;
 
   // TODO not sure how to get dir here correctly, might be wrong
-  struct dir *dir = dir_open(inode);
+  // struct dir *dir = dir_open(inode);
   
   success = dir_readdir(dir, dir_name);
 
