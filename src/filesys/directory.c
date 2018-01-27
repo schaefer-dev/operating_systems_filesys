@@ -122,6 +122,11 @@ dir_open_path(const char* path)
   if (*temp == '/'){
     /* absolute path */
     current_dir = dir_open_root();
+    // TODO this should not be neccessary, trying to force open to work on '/'
+    if (name_length == 1){
+      //printf("DEBUG: parsing of just '/' returns\n");
+      goto success;
+    }
   } else {
     /* relative path */
     struct thread *current_thread = thread_current();
@@ -166,10 +171,11 @@ dir_open_path(const char* path)
     return NULL;
   }
 
+ success:
   //printf("DEBUG: dir_open_path returned successful\n");
   return current_dir;
 
-  invalid:
+ invalid:
   dir_close(current_dir);
   free(temp);
   //printf("DEBUG: dir_open_path invalid\n");

@@ -73,6 +73,12 @@ filesys_create (const char *name, off_t initial_size, bool directory)
 
   char path [(name_length + 1)];
   char file_name [(name_length + 1)];
+  int clear_iterator = 0;
+  for (clear_iterator = 0; clear_iterator <= name_length; clear_iterator += 1){
+    path[clear_iterator] = '\0';
+    file_name[clear_iterator] = '\0';
+
+  }
   parse_string_to_path_file(name, path, file_name);
 
   //printf("DEBUG: get path returns:'%s'\n", path);
@@ -123,6 +129,12 @@ filesys_open (const char *name)
 
   char path [(name_length + 1)];
   char file_name [(name_length + 1)];
+  int clear_iterator = 0;
+  for (clear_iterator = 0; clear_iterator <= name_length; clear_iterator += 1){
+    path[clear_iterator] = '\0';
+    file_name[clear_iterator] = '\0';
+
+  }
   parse_string_to_path_file(name, path, file_name);
 
   //printf("DEBUG: filesys open called 1 \n");
@@ -146,15 +158,17 @@ filesys_open (const char *name)
 
   if (strlen(file_name) == 0){
     /* case of no file_name -> return directory */
+    //printf("DEBUG: case of no file_name -> return directory in filesys_open\n");
     inode = dir_get_inode(dir);
   } else {
     /* case of file_name -> return search result for filename instead */
+    //printf("DEBUG: case of found file_name '%s'-> try to return file in filesys_open\n", file_name);
     dir_lookup (dir, file_name, &inode);
     dir_close (dir);
   }
 
   /* double check if inode has been removed already */
-  if (inode != NULL && inode_is_removed(inode)) {
+  if (inode == NULL || inode_is_removed(inode)) {
    return NULL;
   }
 
@@ -176,6 +190,12 @@ filesys_remove (const char *name)
 
   char path [(name_length + 1)];
   char file_name [(name_length + 1)];
+  int clear_iterator = 0;
+  for (clear_iterator = 0; clear_iterator <= name_length; clear_iterator += 1){
+    path[clear_iterator] = '\0';
+    file_name[clear_iterator] = '\0';
+
+  }
   parse_string_to_path_file(name, path, file_name);
 
   if (file_name == NULL)
