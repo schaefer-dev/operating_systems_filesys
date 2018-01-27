@@ -796,6 +796,7 @@ inode_remove (struct inode *inode)
 {
   ASSERT (inode != NULL);
   inode->removed = true;
+  printf("inode was marked as removed\n");
   // TODO: think about removing entries from cache here
 }
 
@@ -955,11 +956,11 @@ inode_get_open_count(struct inode *inode){
 }
 
 bool
-inode_set_parent (struct inode *inode, struct inode *parent)
+inode_set_parent_to_inode (struct inode *inode, struct inode *parent)
 {
   if (inode == NULL)
     return false;
 
-  inode->parent = parent;
+  inode->parent = inode_get_inumber(parent);
   return true;
 }
