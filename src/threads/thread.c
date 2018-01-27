@@ -313,6 +313,9 @@ thread_exit (void)
 
   struct thread *current_thread = thread_current();
 
+  // TODO why is this neccessary here?
+  if (lock_held_by_current_thread(&lock_filesystem))
+    lock_release(&lock_filesystem);
   clear_files();
 
   // TODO why is this neccessary here?
