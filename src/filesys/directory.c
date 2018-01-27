@@ -185,6 +185,7 @@ dir_create_root (block_sector_t sector, size_t entry_cnt)
   bool success = inode_create (sector, entry_cnt * sizeof (struct dir_entry), true);
 
   struct inode *root_inode = inode_open (sector);
+
   if (root_inode == NULL)
     return false;
   struct dir *root = dir_open (root_inode);
@@ -204,6 +205,7 @@ dir_create_root (block_sector_t sector, size_t entry_cnt)
   strlcpy (parent.name, parent_name, sizeof parent.name);
   parent.in_use = true;
   parent.inode_sector = root_inode->sector;
+
   /* wirte parent to second position in directory; first one is own directory */
   if(!inode_write_at(root->inode, &parent, sizeof parent, sizeof parent)){
     return false;

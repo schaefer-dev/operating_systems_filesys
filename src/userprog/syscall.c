@@ -474,6 +474,7 @@ syscall_remove(const char *file_name){
    the opened file if succesful, -1 otherwise */
 int
 syscall_open(const char *file_name){
+  //printf("DEBUG: open with '%s'\n", file_name);
   int length = validate_string(file_name);
   lock_acquire(&lock_filesystem);
   struct file *new_file = filesys_open(file_name);
