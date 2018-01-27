@@ -496,19 +496,21 @@ dir_readdir (struct dir *dir, char name[NAME_MAX + 1])
 bool
 dir_is_empty (struct dir *dir)
 {
+  struct inode *inode = dir->inode;
   struct dir_entry e;
+  off_t iterator_next_dir_entry = 2 * sizeof(e);
 
-  while (inode_read_at (dir->inode, &e, sizeof e, dir->pos) == sizeof e) 
+  while (true) 
     {
-      if (dir->pos < (2* sizeof e)){
-        dir->pos += sizeof e;
-        continue;
-      }
-      dir->pos += sizeof e;
+      /* stop if no more valid entry was read! */
+      if (inode_read_at (inode, &e, sizeof e, iterator_next_dir_entry) != sizeof e)
+        break;
+
       if (e.in_use)
         {
           return false;
         } 
+      iterator_next_dir_entry += sizeof(e);
     }
   return true;
 }
