@@ -106,7 +106,11 @@ dir_open_path(const char* path)
       return dir_open_root();		
     } else {
       //printf("DEBUG: open path cwd NOT NULL \n");
-      return dir_reopen(thread_current()->current_working_dir);
+      /* return CWD if it was not marked as removed */
+      struct dir *current_dir =  dir_reopen(thread_current()->current_working_dir);
+      if (current_dir == NULL || dir_get_inode(current_dir) == NULL || inode_is_removed(dir_get_inode(current_dir)))
+        return NULL;
+      return current_dir;
     }
   }
 
