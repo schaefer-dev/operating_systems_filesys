@@ -137,6 +137,10 @@ dir_open_path(const char* path)
     }
   }
 
+  /* if current directory is removed, cannot open path */
+  if (current_dir == NULL || dir_get_inode(current_dir) == NULL || inode_is_removed(dir_get_inode(current_dir)))
+    return NULL;
+
   ASSERT(current_dir != NULL);
 
   /* change directory step by step based on path */
@@ -171,9 +175,12 @@ dir_open_path(const char* path)
         goto invalid;
       }
       struct dir *next_dir = dir_open(inode);
-      if (next_dir == NULL){
+
+      /* traversing illegal / removed directory not allowed */
+      if (next_dir == NULL || inode_is_removed(inode)){
         goto invalid;
       }
+
       dir_close(current_dir);
       current_dir = next_dir;
     }
@@ -183,7 +190,7 @@ dir_open_path(const char* path)
   free(temp);
 
   /* double check if inode has been removed already */
-  if (current_dir != NULL && current_dir->inode != NULL && inode_is_removed(current_dir->inode)) {
+  if (current_dir == NULL || current_dir->inode == NULL || inode_is_removed(current_dir->inode)) {
     dir_close(current_dir);
     return NULL;
   }
