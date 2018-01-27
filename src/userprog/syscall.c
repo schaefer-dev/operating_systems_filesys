@@ -625,15 +625,10 @@ void syscall_close(int fd){
   }
   struct file_entry *f = list_entry (element, struct file_entry, elem);
 
-  if (f->file == NULL){
-    lock_release(&lock_filesystem);
-    return;
-  }
-
   // TODO think about this, if file doesnt have to always be closed!
   if (f->dir != NULL)
     dir_close(f->dir);
-  else
+  else if (f->file)
     file_close(f->file);
   list_remove (element);
   free(f);
@@ -696,17 +691,31 @@ syscall_isdir(int fd)
   bool success = false;
   lock_acquire(&lock_filesystem);
 
-  struct file *file = get_file(fd);
-  if (file == NULL){
+  struct file_entry *file_entry = get_file_entry(fd);
+
+  if (file_entry == NULL)
+    goto done;
+
+  if (file_entry->dir == NULL)}{
+    /* should be case file but to the sure */
+    success = false;
+    /* should not be needed */
+    struct file *file = file_entry->file;
+    ASSERT(file!=NULL);
+    struct inode *inode = file_get_inode(file);
+    if (inode != NULL)
+      ASSERT(!inode_is_directory(inode))
+    goto done;
+  } else {
+    struct dir *dir = file_entry->dir;
+    ASSERT(dir != NULL);
+    truct inode *inode = dir_get_inode(dir);
+    if (inode == NULL || inode_is_removed(inode))
+      goto done;
+    success = inode_is_directory(inode);
+    ASSERT(success == true);
     goto done;
   }
-
-  struct inode *inode = file_get_inode(file);
-  if (inode == NULL || inode_is_removed(inode)){
-    goto done;
-  }
-
-  success = inode_is_directory(inode);
 
  done:
   lock_release(&lock_filesystem);
@@ -719,10 +728,19 @@ syscall_inumber(int fd)
   int inumber = -1;
 
   lock_acquire(&lock_filesystem);
-  struct file *file = get_file(fd);
-  if (file == NULL)
+  struct file_entry *file_entry = get_file_entry(fd);
+
+  if(file_entry == NULL)
     goto done;
-  struct inode *inode = file_get_inode(file);
+
+  struct inode *inode = NULL;
+
+  if (file_entry->file != NULL){
+    inode = file_get_inode(file_entry->file);
+  } else if (file_entry->dir != NULL){
+    inode = dir_get_inode(file_entry->dir);
+  }
+
   if (inode == NULL || inode_is_removed(inode))
     goto done;
 
