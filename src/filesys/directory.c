@@ -131,7 +131,7 @@ dir_open_path(const char* path)
   /* if current directory is removed, cannot open path */
   if (current_dir == NULL || dir_get_inode(current_dir) == NULL || inode_is_removed(dir_get_inode(current_dir)))
   {
-    printf("DEBUG: current_dir was initially already marked as removed\n");
+    //printf("DEBUG: current_dir was initially already marked as removed\n");
     return NULL;
   }
 
@@ -147,7 +147,7 @@ dir_open_path(const char* path)
       /* new special cases for parent .. */
       if (token_length == 2){
         if (token[0] == '.'  && token[1] == '.'){
-          printf("DEBUG: recognized '..'\n");
+          //printf("DEBUG: recognized '..'\n");
           struct dir *next_dir = dir_open_parent_dir(current_dir);
           dir_close(current_dir);
           current_dir = next_dir;
@@ -188,21 +188,21 @@ dir_open_path(const char* path)
   if (current_dir == NULL)
   {
     dir_close(current_dir);
-    printf("DEBUG: result-current_dir was NULL\n");
+    //printf("DEBUG: result-current_dir was NULL\n");
     return NULL;
   }
 
   if (current_dir == NULL || current_dir->inode == NULL)
   {
     dir_close(current_dir);
-    printf("DEBUG: result-current_dir inode was NULL\n");
+    //printf("DEBUG: result-current_dir inode was NULL\n");
     return NULL;
   }
 
   if (current_dir == NULL || current_dir->inode == NULL || inode_is_removed(current_dir->inode))
   {
     dir_close(current_dir);
-    printf("DEBUG: result-current_dir was marked as removed\n");
+    //printf("DEBUG: result-current_dir was marked as removed\n");
     return NULL;
   }
 
@@ -450,7 +450,7 @@ dir_remove (struct dir *dir, const char *name)
   /* Find directory entry. */
   if (!lookup (dir, name, &e, &ofs))
   {
-    printf("DEBUG: lookup failed in remove\n");
+    //printf("DEBUG: lookup failed in remove\n");
     goto done;
   }
 
@@ -458,7 +458,7 @@ dir_remove (struct dir *dir, const char *name)
   inode = inode_open (e.inode_sector);
   if (inode == NULL)
   {
-    printf("DEBUG: inode NULL in remove\n");
+    //printf("DEBUG: inode NULL in remove\n");
     goto done;
   }
 
@@ -467,7 +467,7 @@ dir_remove (struct dir *dir, const char *name)
     if(!dir_is_empty(delete_dir)){
       /* directory is not empty and cannot be removed */
       dir_close(delete_dir);
-      printf("DEBUG: removing dir is not empty\n");
+      //printf("DEBUG: removing dir is not empty\n");
       goto done;
     } else {
       /* inode has to be removed and entry has to be set to not in use */
@@ -479,17 +479,17 @@ dir_remove (struct dir *dir, const char *name)
   e.in_use = false;
   if (inode_write_at (dir->inode, &e, sizeof e, ofs) != sizeof e) 
   {
-    printf("DEBUG: inode overwrite of dir entry failed\n");
+    //printf("DEBUG: inode overwrite of dir entry failed\n");
     goto done;
   }
 
   /* Remove inode. */
-  printf("DEBUG: removed '%s'\n", name); 
+  //printf("DEBUG: removed '%s'\n", name); 
   inode_remove (inode);
   success = true;
 
  done:
-  printf("DEBUG: remove of '%s' failed\n", name); 
+  //printf("DEBUG: remove of '%s' failed\n", name); 
   inode_close (inode);
   return success;
 }

@@ -29,9 +29,6 @@ test_main (void)
       char contents[128];
       int fd;
 
-      if (i> 200)
-	      break;
-
       /* Create file. */
       snprintf (file_name, sizeof file_name, "file%d", i);
       if (!create (file_name, 0))

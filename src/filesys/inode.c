@@ -796,7 +796,7 @@ inode_remove (struct inode *inode)
 {
   ASSERT (inode != NULL);
   inode->removed = true;
-  printf("inode was marked as removed\n");
+  //printf("DEBUG: inode was marked as removed\n");
   // TODO: think about removing entries from cache here
 }
 
