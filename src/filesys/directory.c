@@ -551,9 +551,11 @@ dir_open_parent_dir(struct dir *dir)
   struct inode *inode = dir_get_inode(dir);
 
   // TODO reopen instead?
-  struct inode *parent_inode = inode_open(inode_parent(inode));
+  block_sector_t parent_inode_block = inode_parent(inode);
+  ASSERT(parent_inode_block != 0);
+  struct inode *parent_inode = inode_open(parent_inode_block);
+  ASSERT(parent_inode != NULL);
 
-  ASSERT(parent_inode != 0);
 
   parent_dir = dir_open(parent_inode);
 

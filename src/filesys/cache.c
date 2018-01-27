@@ -31,7 +31,7 @@ filesys_cache_init(){
   //printf("DEBUG: init terminated\n");
 
   // TODO enable periodic writeback again!
-  //thread_create("periodic_writeback", 0, filesys_cache_periodic_writeback , NULL);
+  thread_create("periodic_writeback", 0, filesys_cache_periodic_writeback , NULL);
 }
 
 
