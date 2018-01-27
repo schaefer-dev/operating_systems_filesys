@@ -106,7 +106,7 @@ dir_open_path(const char* path)
       return dir_open_root();		
     } else {
       //printf("DEBUG: open path cwd NOT NULL \n");
-        return dir_reopen(thread_current()->current_working_dir);
+      return dir_reopen(thread_current()->current_working_dir);
     }
   }
 
@@ -425,9 +425,9 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector, bool di
 bool
 dir_remove (struct dir *dir, const char *name) 
 {
+  bool success = false;
   struct dir_entry e;
   struct inode *inode = NULL;
-  bool success = false;
   off_t ofs;
 
   ASSERT (dir != NULL);
@@ -454,7 +454,7 @@ dir_remove (struct dir *dir, const char *name)
     }
   }
 
-  /* Erase directory entry. */
+  /* Erase directory entry by writing new entry with in_use=false */
   e.in_use = false;
   if (inode_write_at (dir->inode, &e, sizeof e, ofs) != sizeof e) 
     goto done;

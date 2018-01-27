@@ -186,6 +186,7 @@ filesys_open (const char *name)
 bool
 filesys_remove (const char *name) 
 {
+  bool success = false;
   if (name == NULL)
     return false;
 
@@ -205,7 +206,10 @@ filesys_remove (const char *name)
     return false;
   struct dir *dir = NULL;
   dir = dir_open_path(path);
-  bool success = dir != NULL && dir_remove (dir, file_name);
+
+  if (dir != NULL)
+    success = dir_remove(dir, file_name);
+
   dir_close (dir); 
 
   return success;
