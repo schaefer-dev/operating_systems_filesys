@@ -12,6 +12,7 @@
 
 /* Identifies an inode. */
 #define INODE_MAGIC 0x494e4f44
+#define PARENT_MAGIC 2000000000
 
 
 static block_sector_t byte_to_sector_indirect (const struct inode *inode, off_t pos);
@@ -455,7 +456,7 @@ inode_deallocate (struct inode *inode)
       num_of_sectors -= NUMBER_INDIRECT_POINTERS;
       iter += 1;
     }
-  } else {
+  } else if (index_level == 1) {
     /* free all allocated indirect ones */
     int iter = 0;
     while (iter < current_index) {
@@ -639,7 +640,7 @@ inode_create (block_sector_t sector, off_t length, bool directory)
       disk_inode->indirect_index = 0;
       disk_inode->double_indirect_index = 0;
       disk_inode->directory = directory;
-      disk_inode->parent = 0;
+      disk_inode->parent = PARENT_MAGIC;
       inode_grow(NULL, disk_inode, length, 0);
       if (length > MAX_FILESIZE)
         disk_inode->length = MAX_FILESIZE;
@@ -701,7 +702,7 @@ inode_open (block_sector_t sector)
   inode->open_cnt = 1;
   inode->deny_write_cnt = 0;
   inode->removed = false;
-  inode->parent = 0;
+  inode->parent = PARENT_MAGIC;
   inode->directory = false;
   lock_init(&inode->inode_extend_lock);
 
