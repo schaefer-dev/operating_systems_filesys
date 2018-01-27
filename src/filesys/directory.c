@@ -23,119 +23,77 @@ struct dir_entry
   };
 
 
-/* returns the path contained in the string 'name' */
 char*
 dir_get_path (const char* name)
 {
-  ASSERT(name != NULL);
-
-  //bool is_absolute_path = false;
-  int name_length = strlen(name);
-
-  if (name_length == 0)
-    return NULL;
-
-  char *temp = malloc(sizeof(char) * (name_length + 1));
-
-  // TODO make sure that this output is freed in all cases!
-  char *output = malloc(sizeof(char) * name_length);
-  unsigned output_offset = 0;
-
-  /* to make sure that last token is not null */
-  strlcpy(temp, name, name_length + 1);
-  temp[name_length] = ' ';
-  temp[name_length+1] = '\0';
-
-  if (temp[0] == '/'){
-    //is_absolute_path = true;
-    char *absolute_path = "/";
-    memcpy (output + output_offset, absolute_path, sizeof(char));
-    output_offset += 1;
-  }
-
-  char *token = "";
-  char *last_token = "";
-  char *pos;
-  for (token = strtok_r(temp, "/", &pos); token != NULL; token = strtok_r(NULL, "/", &pos)) {
-    int token_length = strlen(token);
-    if (token_length > 0){
-      memcpy (output + output_offset, token, sizeof(char) * token_length);
-      output_offset += token_length;
-      output[output_offset] = '/';
-      output_offset += 1;
-    }
-    last_token = token;
-  }
-
-  if (last_token != NULL)
-      output_offset -= strlen(last_token);
-
-  output[output_offset-1] = '\0';
-
-  free(temp);
-
-  if (strlen(output) == 0){
-    free(output);
-    return NULL;
-  }
-
-  return output;
+    PANIC("THIS FUNCTION IS REPLACED");
 }
 
-
-
-/* returns the filename contained in the string 'name' and NULL if name is
-empty or doesn't contain a filename */
 char*
 dir_get_file_name (const char* name)
 {
-  ASSERT(name != NULL);
-  int name_length = strlen(name);
-
-  if (name_length == 0)
-    return NULL;
-
-  char *temp = malloc(sizeof(char) * (name_length + 1));
-
-  char *output = malloc(sizeof(char) * name_length);
-  unsigned output_offset = 0;
-
-  /* to make sure that last token is not null */
-  strlcpy(temp, name, name_length + 1);
-  temp[name_length] = ' ';
-  temp[name_length+1] = '\0';
-
-
-  char *token = "";
-  char *last_token = "";
-  char *pos;
-  for (token = strtok_r(temp, "/", &pos); token != NULL; token = strtok_r(NULL, "/", &pos)) {
-    last_token = token;
-  }
-
-  if (last_token != NULL){
-    int last_token_length = strlen(last_token);
-    memcpy (output, last_token, sizeof(char) * last_token_length);
-    output_offset += last_token_length;
-
-    output[output_offset-1] = '\0';
-  }
-
-  free(temp);
-
-  if (strlen(output) == 0){
-    free(output);
-    return NULL;
-  }
-
-  return output;
+    PANIC("THIS FUNCTION IS REPLACED");
 }
+
+
+/*  IMPORTANT: Paths are not allowed to end with / in string!!! */
+/*  TODO make sure to create and free path/file_name whenever this function is used! 
+ *  they should be allocated with strlen(string) + 1 */
+void
+parse_string_to_path_file(const char *string, char *path, char *file_name)
+{
+    bool is_absolute_path = false;
+    int string_length = strlen(string);
+
+    if (string_length == 0)
+      return;
+
+    // TODO think about +1 here
+    char *temp = malloc(sizeof(char) * (string_length + 1));
+    memcpy(temp, string, sizeof(char) * (string_length + 1));
+
+    /*  reference to continiously write into path string */
+    char *path_writer = path;
+
+    if (temp[0] == '/'){
+      is_absolute_path = true;
+      *path_writer = '/';
+      path_writer += 1;
+    }
+
+    char *token = NULL;
+    char *previous_token = NULL;
+    char *pos;
+
+    for (token = strtok_r(temp, "/", &pos); token != NULL; token = strtok_r(NULL, "/", &pos)) {
+      if (previous_token != NULL){
+        int token_length = strlen(previous_token);
+        if (token_length > 0){
+          memcpy (path_writer, previous_token, sizeof(char) * token_length);
+          path_writer += token_length;
+          *path_writer = '/';
+          path_writer += 1;
+        }
+      }
+      previous_token = token;
+    }
+
+    *path_writer = '\0';
+    int previous_token_length = 0;
+    if (previous_token != NULL)
+      previous_token_length = strlen(previous_token);
+
+    memcpy(file_name, previous_token, sizeof(char) * previous_token_length + 1);
+    free(temp);
+}
+
+
 
 struct dir*
 dir_open_path(const char* path)
-{
+{ 
   //ASSERT(path != NULL);
-  if (path == NULL){
+  if (path == NULL || strlen(path) == 0) {
     //TODO: open current working directory
     if (thread_current()->current_working_dir == NULL){
       //printf("DEBUG: open path cwd is NULL \n");
@@ -148,18 +106,14 @@ dir_open_path(const char* path)
 
   int name_length = strlen(path);
 
-  if (name_length==0){
-    return NULL;
-  }
-
   struct dir *current_dir = NULL;
 
-  char *temp = malloc(sizeof(char) * (name_length));
+  char *temp = malloc(sizeof(char) * (name_length + 1));
 
   /* to make sure that last token is not null */
-  strlcpy(temp, path, name_length);
+  strlcpy(temp, path, name_length + 1);
 
-  if (temp[0] == '/'){
+  if (*temp == '/'){
     /* absolute path */
     current_dir = dir_open_root();
   } else {
