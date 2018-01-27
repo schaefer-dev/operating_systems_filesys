@@ -146,6 +146,23 @@ dir_open_path(const char* path)
     int token_length = strlen(token);
     //printf("DEBUG: token_iter in dir opening: '%s'\n", token);
     if (token_length > 0){
+      /* new special cases for parent .. */
+      if (token_length == 2){
+        if (token[0] == '.'  && token[1] == '.'){
+          struct dir *next_dir = dir_open_parent_dir(current_dir);
+          dir_close(current_dir);
+          current_dir = next_dir;
+          continue;
+        }
+      }
+
+      /* new special cases for self . */
+      if (token_length == 1){
+        if (token[0] == '.'){
+          continue;
+        }
+      }
+
       struct inode *inode = NULL;
       if (!dir_lookup (current_dir, token, &inode)){
         goto invalid;
@@ -191,31 +208,15 @@ dir_create_root (block_sector_t sector, size_t entry_cnt)
   bool success = inode_create (sector, entry_cnt * sizeof (struct dir_entry), true);
 
   struct inode *root_inode = inode_open (sector);
+  inode_set_parent(root_inode, root_inode);
 
   if (root_inode == NULL)
     return false;
+
   struct dir *root = dir_open (root_inode);
+
   if (root == NULL)
     return false;
-  struct dir_entry current;
-  char *current_name = "."; 
-  strlcpy (current.name, current_name, sizeof current.name);
-  current.in_use = true;
-  current.inode_sector = root_inode->sector;
-  /* wirte own directory to first position */
-  if(!inode_write_at(root->inode, &current, sizeof current, 0)){
-    return false;
-  }
-  struct dir_entry parent;
-  char *parent_name = "..";
-  strlcpy (parent.name, parent_name, sizeof parent.name);
-  parent.in_use = true;
-  parent.inode_sector = root_inode->sector;
-
-  /* wirte parent to second position in directory; first one is own directory */
-  if(!inode_write_at(root->inode, &parent, sizeof parent, sizeof parent)){
-    return false;
-  }
 
   return success;
 }
@@ -277,6 +278,7 @@ dir_get_inode (struct dir *dir)
   return dir->inode;
 }
 
+/* TODO replace all calls of lookup with dir_lookup!!! */
 /* Searches DIR for a file with the given NAME.
    If successful, returns true, sets *EP to the directory entry
    if EP is non-null, and sets *OFSP to the byte offset of the
@@ -318,6 +320,22 @@ dir_lookup (const struct dir *dir, const char *name,
   ASSERT (dir != NULL);
   ASSERT (name != NULL);
 
+  /* handle '.' seperatly! */
+  if (strlen(name) == 1){
+    if (name[0] == '.'){
+      *inode = dir->inode;
+      return true;
+    }
+  }
+
+  /* handle '..' seperatly! */
+  if (strlen(name) == 2){
+    if (name[0] == '.' && name[1] == '.'){
+      *inode = inode_parent(dir->inode);
+      return true;
+    }
+  }
+
   if (lookup (dir, name, &e, NULL))
     *inode = inode_open (e.inode_sector);
   else
@@ -355,33 +373,12 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector, bool di
   /* if directory we add the directory to the file(in this case a directory) */
   /* TODO: could be bad at this position race if inode not already created */
   if(directory){
-    struct dir *child_dir = dir_open(inode_open(inode_sector));
+    struct inode *child_inode = inode_open(inode_sector);
+    inode_set_parent(child_inode, dir_get_inode(dir));
+    struct dir *child_dir = dir_open(child_inode);
     if (child_dir == NULL)
       return false;
 
-    /* add directory itself as directory entry to directory */
-    struct dir_entry current;
-    char *current_name = ".";
-    strlcpy (current.name, current_name, sizeof e.name);
-    current.in_use = true;
-    current.inode_sector = inode_sector;
-    /* wirte parent to second position in directory; first one is own directory */
-    if(inode_write_at(child_dir->inode, &current, sizeof e, 0) != sizeof e){
-      dir_close(child_dir);
-      return false;
-    }
-    /* add parent to directory */
-    struct inode *parent_inode = dir->inode;
-    struct dir_entry parent;
-    char *parent_name = "..";
-    strlcpy (parent.name, parent_name, sizeof e.name);
-    parent.in_use = true;
-    parent.inode_sector = parent_inode->sector;
-    /* wirte parent to second position in directory; first one is own directory */
-    if(inode_write_at(child_dir->inode, &parent, sizeof e, sizeof e) != sizeof e){
-      dir_close(child_dir);
-      return false;
-    }
     dir_close(child_dir);
   }
 
@@ -397,12 +394,11 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector, bool di
     if (!e.in_use)
       break;
 
-  /* parent directory initially has to contain at least 2 entries */ 
+  /* parent directory initially has to contain at least 0 entries */ 
   if (directory){
-    ASSERT(ofs >= (2*(sizeof e)));
+    ASSERT(ofs >= (0*(sizeof e)));
   } 
     
-
   /* Write slot. */
   e.in_use = true;
   strlcpy (e.name, name, sizeof e.name);
@@ -410,7 +406,7 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector, bool di
   off_t bytes_written = inode_write_at (dir->inode, &e, sizeof e, ofs);
 
   /* parent directory now has to contain at least 3 entries */ 
-  ASSERT((ofs + bytes_written) >= (3*(sizeof e)));
+  ASSERT((ofs + bytes_written) >= (1*(sizeof e)));
 
   if (bytes_written == sizeof e)
     success = true;
@@ -478,7 +474,7 @@ dir_readdir (struct dir *dir, char name[NAME_MAX + 1])
 
   while (inode_read_at (dir->inode, &e, sizeof e, dir->pos) == sizeof e) 
     {
-      if (dir->pos < (2* sizeof e)){
+      if (dir->pos < (0 * sizeof e)){
         dir->pos += sizeof e;
         continue;
       }
@@ -498,7 +494,7 @@ dir_is_empty (struct dir *dir)
 {
   struct inode *inode = dir->inode;
   struct dir_entry e;
-  off_t iterator_next_dir_entry = 2 * sizeof(e);
+  off_t iterator_next_dir_entry = 0 * sizeof(e);
 
   while (true) 
     {
@@ -513,4 +509,22 @@ dir_is_empty (struct dir *dir)
       iterator_next_dir_entry += sizeof(e);
     }
   return true;
+}
+
+/* returns parent dir for passed directory */
+struct dir*
+dir_open_parent_dir(struct dir *dir)
+{
+  ASSERT(dir != NULL);
+  struct dir *parent_dir = NULL;
+
+  struct inode *inode = dir_get_inode(dir);
+
+  struct inode *parent_inode = inode_parent(inode);
+
+  parent_dir = dir_open(parent_inode);
+
+  ASSERT(parent_dir != NULL);
+
+  return parent_dir;
 }

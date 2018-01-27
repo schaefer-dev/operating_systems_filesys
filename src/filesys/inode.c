@@ -953,3 +953,13 @@ inode_get_open_count(struct inode *inode){
   else
     return inode->open_cnt;
 }
+
+bool
+inode_set_parent (struct inode *inode, struct inode *parent)
+{
+  if (inode == NULL)
+    return false;
+
+  inode->parent = parent;
+  return true;
+}

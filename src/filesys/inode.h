@@ -118,6 +118,7 @@ void inode_deny_write (struct inode *);
 void inode_allow_write (struct inode *);
 off_t inode_length (struct inode *);
 block_sector_t inode_parent (struct inode *);
+bool inode_set_parent (struct inode *inode, struct inode *parent);
 bool inode_is_directory (struct inode *);
 bool inode_is_removed (struct inode *);
 int inode_get_open_count(struct inode*);
