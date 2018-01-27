@@ -139,12 +139,16 @@ filesys_open (const char *name)
   dir = dir_open_path(path);
   struct inode *inode = NULL;
 
+  /* directory cannot be read, error */
+  if (dir == NULL)
+    return NULL;
   
+
   if (strlen(file_name) == 0){
     /* case of no file_name -> return directory */
     inode = dir_get_inode(dir);
   } else {
-    /* case of file_name -> return filename instead */
+    /* case of file_name -> return search result for filename instead */
     dir_lookup (dir, file_name, &inode);
     dir_close (dir);
   }
