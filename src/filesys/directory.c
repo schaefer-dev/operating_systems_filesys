@@ -155,7 +155,9 @@ dir_open_path(const char* path)
 
   struct dir *current_dir = NULL;
 
-  char *temp = malloc(sizeof(char) * (name_length + 2));
+  printf("DEBUG: name_length of path: %i\n", name_length);
+
+  char *temp = malloc(sizeof(char) * (name_length+1));
 
   /* to make sure that last token is not null */
   strlcpy(temp, path, name_length);
@@ -174,9 +176,6 @@ dir_open_path(const char* path)
       current_dir = dir_open_root();
     }
   }
-
-  temp[name_length] = '/';
-  temp[name_length+1] = '\0';
 
   printf("DEBUG: open path temp path name: %s\n", temp);
 
