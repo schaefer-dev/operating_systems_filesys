@@ -247,8 +247,11 @@ do_format (void)
 {
   printf ("Formatting file system...");
   free_map_create ();
-  if (!dir_create_root (ROOT_DIR_SECTOR, 16))
+  // TODO dont create root with this size, instead find why we have issues with root not growing!
+  struct dir *root_dir = dir_create_root (ROOT_DIR_SECTOR, 56);
+  if (root_dir == NULL)
     PANIC ("root directory creation failed");
+  inode_writeback(dir_get_inode(root_dir));
   free_map_close ();
   printf ("done.\n");
 }

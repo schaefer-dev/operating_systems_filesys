@@ -220,7 +220,7 @@ dir_open_path(const char* path)
 
 /* Creates a directory with space for ENTRY_CNT entries in the
    given SECTOR.  Returns true if successful, false on failure. */
-bool
+struct dir*
 dir_create_root (block_sector_t sector, size_t entry_cnt)
 {
   bool success = inode_create (sector, entry_cnt * sizeof (struct dir_entry), true);
@@ -229,14 +229,14 @@ dir_create_root (block_sector_t sector, size_t entry_cnt)
   inode_set_parent_to_inode(root_inode, root_inode);
 
   if (root_inode == NULL)
-    return false;
+    return NULL;
 
   struct dir *root = dir_open (root_inode);
 
   if (root == NULL)
-    return false;
+    return NULL;
 
-  return success;
+  return root;
 }
 
 /* Opens and returns the directory for the given INODE, of which

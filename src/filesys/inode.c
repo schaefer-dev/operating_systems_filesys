@@ -757,37 +757,46 @@ inode_close (struct inode *inode)
   /* Release resources if this was the last opener. */
   if (--inode->open_cnt == 0)
     {
-      /* Remove from inode list and release lock. */
-      list_remove (&inode->elem);
- 
-      /* Deallocate blocks if removed. */
-      if (inode->removed) 
-        {
-          free_map_release (inode->sector, 1);
-          inode_deallocate(inode);
-          // TODO: think about removing entries from cache here
-        }
-      else
-        { 
-          /* write back to disk */
-          struct inode_disk inode_disk;
-          inode_disk.length = inode->data_length;
-          inode_disk.index_level = inode->index_level;
-          inode_disk.current_index = inode->current_index;
-          inode_disk.indirect_index = inode->indirect_index;
-          inode_disk.double_indirect_index = inode->double_indirect_index;
-          inode_disk.directory = inode->directory;
-          inode_disk.magic = INODE_MAGIC;
-          inode_disk.directory = inode->directory;
-          inode_disk.parent = inode->parent;
-          memcpy(&inode_disk.direct_pointers, &inode->direct_pointers, NUMBER_DIRECT_BLOCKS * sizeof(block_sector_t));
-          memcpy(&inode_disk.indirect_pointers, &inode->indirect_pointers, NUMBER_INDIRECT_BLOCKS * sizeof(block_sector_t));
-          memcpy(&inode_disk.double_indirect_pointers, &inode->double_indirect_pointers, NUMBER_DOUBLE_INDIRECT_BLOCKS * sizeof(block_sector_t));
-          filesys_cache_write(inode->sector, &inode_disk, 0, BLOCK_SECTOR_SIZE);
-        }
-
-      free (inode); 
+      inode_writeback(inode);
     }
+}
+
+void
+inode_writeback (struct inode *inode)
+{
+  if (inode == NULL)
+    return;
+
+  /* Remove from inode list and release lock. */
+  list_remove (&inode->elem);
+
+  /* Deallocate blocks if removed. */
+  if (inode->removed) 
+    {
+      free_map_release (inode->sector, 1);
+      inode_deallocate(inode);
+      // TODO: think about removing entries from cache here
+    }
+  else
+    { 
+      /* write back to disk */
+      struct inode_disk inode_disk;
+      inode_disk.length = inode->data_length;
+      inode_disk.index_level = inode->index_level;
+      inode_disk.current_index = inode->current_index;
+      inode_disk.indirect_index = inode->indirect_index;
+      inode_disk.double_indirect_index = inode->double_indirect_index;
+      inode_disk.directory = inode->directory;
+      inode_disk.magic = INODE_MAGIC;
+      inode_disk.directory = inode->directory;
+      inode_disk.parent = inode->parent;
+      memcpy(&inode_disk.direct_pointers, &inode->direct_pointers, NUMBER_DIRECT_BLOCKS * sizeof(block_sector_t));
+      memcpy(&inode_disk.indirect_pointers, &inode->indirect_pointers, NUMBER_INDIRECT_BLOCKS * sizeof(block_sector_t));
+      memcpy(&inode_disk.double_indirect_pointers, &inode->double_indirect_pointers, NUMBER_DOUBLE_INDIRECT_BLOCKS * sizeof(block_sector_t));
+      filesys_cache_write(inode->sector, &inode_disk, 0, BLOCK_SECTOR_SIZE);
+    }
+
+  free (inode); 
 }
 
 /* Marks INODE to be deleted when it is closed by the last caller who
