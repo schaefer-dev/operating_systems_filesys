@@ -411,8 +411,8 @@ inode_grow(struct inode *inode, struct inode_disk *inode_disk, off_t size, off_t
     inode_disk->double_indirect_index = double_indirect_index;
   }
 
-  //printf("DEBUG: grow end\n");
   return success;
+
 }
 
 
@@ -866,7 +866,8 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
   //printf("DEBUG: inode_write_at start\n");
   if (size + offset > inode->data_length){
     lock_acquire(&inode->inode_extend_lock);
-    inode_grow (inode, NULL, size, offset);
+    if (!inode_grow (inode, NULL, size, offset))
+      return 0;
     inode->data_length = size + offset;
     lock_release(&inode->inode_extend_lock);
     // TODO don't extend length in grow, do it after write is complete!
