@@ -253,7 +253,6 @@ dir_open (struct inode *inode)
     }
   else
     {
-      inode_close (inode);
       free (dir);
       return NULL; 
     }
@@ -393,11 +392,8 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector, bool di
   if(directory){
     struct inode *child_inode = inode_open(inode_sector);
     inode_set_parent_to_inode(child_inode, dir_get_inode(dir));
-    struct dir *child_dir = dir_open(child_inode);
-    if (child_dir == NULL)
-      return false;
 
-    dir_close(child_dir);
+    inode_close(child_inode);
   }
 
   /* Set OFS to offset of free slot.
@@ -413,23 +409,26 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector, bool di
       break;
 
   /* parent directory initially has to contain at least 0 entries */ 
-  if (directory){
-    ASSERT(ofs >= (0*(sizeof e)));
-  } 
+  ASSERT(ofs >= (0*(sizeof e)));
     
   /* Write slot. */
   e.in_use = true;
   strlcpy (e.name, name, sizeof e.name);
   e.inode_sector = inode_sector;
   off_t bytes_written = inode_write_at (dir->inode, &e, sizeof e, ofs);
+  // TODO check that written bytes are okay!
 
-  /* parent directory now has to contain at least 3 entries */ 
-  ASSERT((ofs + bytes_written) >= (1*(sizeof e)));
+  // TODO if parts of the struct are written here this might break the dir!!
+  if((bytes_written) != (1*(sizeof e))){
+    return false;
+  }
 
   if (bytes_written == sizeof e)
     success = true;
 
  done:
+  /* Check that NAME is now in use. */
+  ASSERT (lookup (dir, name, NULL, NULL));
   return success;
 }
 

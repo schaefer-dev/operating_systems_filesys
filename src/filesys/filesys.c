@@ -100,14 +100,18 @@ filesys_create (const char *name, off_t initial_size, bool directory)
   }
   */
   dir = dir_open_path(path);
+
   /* TODO: create directory at this point?? */
   /*TODO: add self as first entry in directory in case of directory */
   bool success = (dir != NULL
                   && free_map_allocate (1, &inode_sector)
                   && inode_create (inode_sector, initial_size, directory)
                   && dir_add (dir, file_name, inode_sector, directory));
+
+  /* if dir_add or inode_create failed release sector again*/
   if (!success && inode_sector != 0) 
     free_map_release (inode_sector, 1);
+
   dir_close (dir);
   //printf("DEBUG: filesys create finished\n");
   return success;
