@@ -225,7 +225,7 @@ process_exit (void)
     }
   /* close open current working directory */
   if (cur->current_working_dir)
-    dir_close(cue->current_working_dir);
+    dir_close(cur->current_working_dir);
 }
 
 /* Sets up the CPU for running user code in the current
