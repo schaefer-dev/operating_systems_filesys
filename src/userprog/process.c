@@ -223,6 +223,9 @@ process_exit (void)
       pagedir_activate (NULL);
       pagedir_destroy (pd);
     }
+  /* close open current working directory */
+  if (cur->current_working_dir)
+    dir_close(cue->current_working_dir);
 }
 
 /* Sets up the CPU for running user code in the current
