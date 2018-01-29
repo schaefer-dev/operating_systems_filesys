@@ -334,7 +334,6 @@ load (const char *file_name, void (**eip) (void), void **esp, char* argument_buf
   process_activate ();
 
   /* Open executable file. */
-  lock_acquire(&lock_filesystem);
   file = filesys_open (file_name);
   if (file == NULL) 
     {
@@ -428,7 +427,6 @@ load (const char *file_name, void (**eip) (void), void **esp, char* argument_buf
   success = true;
 
  done:
-  lock_release(&lock_filesystem);
   /* We arrive here whether the load is successful or not. */
   return success;
 }

@@ -313,21 +313,13 @@ thread_exit (void)
 
   struct thread *current_thread = thread_current();
 
-  // TODO why is this neccessary here?
-  if (lock_held_by_current_thread(&lock_filesystem))
-    lock_release(&lock_filesystem);
   clear_files();
 
-  // TODO why is this neccessary here?
-  if (lock_held_by_current_thread(&lock_filesystem))
-    lock_release(&lock_filesystem);
 
 #ifdef USERPROG
   process_exit ();
   if (current_thread->executable != NULL){
-    lock_acquire(&lock_filesystem);
     file_close((current_thread->executable));
-    lock_release(&lock_filesystem);
   }
 #endif
 
@@ -787,13 +779,11 @@ uint32_t thread_stack_ofs = offsetof (struct thread, stack);
 void
 clear_files(){
   //printf("DEBUG: Clear files start\n");
-  lock_acquire(&lock_filesystem);
   struct thread *t = thread_current();
   struct list *open_files = &(t->file_list);
 
   if (list_empty(open_files)){
       //printf("DEBUG: Clear files empty -> end\n");
-      lock_release(&lock_filesystem);
       return;
   }
 
@@ -818,7 +808,6 @@ clear_files(){
       list_remove (removeElem);
       free(f);
   }
-  lock_release(&lock_filesystem);
   //printf("DEBUG: Clear files end\n");
 }
 

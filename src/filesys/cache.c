@@ -29,6 +29,7 @@ filesys_cache_init(){
   lock_init(&filesys_cache_lock);
   lock_init(&filesys_cache_evict_lock);
   next_free_cache = 0;
+  next_evict_cache = 0;
   //printf("DEBUG: init terminated\n");
 
   // TODO enable periodic writeback again!
@@ -206,9 +207,9 @@ filesys_cache_block_evict() {
   while(true) {
     struct cache_block *iter_cache_block = cache_array[next_evict_cache];
     lock_acquire(&iter_cache_block->cache_field_lock);
-    if (iter_cache_block->accessed) {
+    if (iter_cache_block->accessed_counter > 0) {
       iter_cache_block->accessed = false;
-      iter_cache_block->accessed_counter = 0;
+      iter_cache_block->accessed_counter -= 1;
       lock_release(&iter_cache_block->cache_field_lock);
       next_evict_cache = (next_evict_cache + 1) % CACHE_SIZE;
     } else {

@@ -342,9 +342,7 @@ syscall_write(int fd, const void *buffer, unsigned size){
     if (file_ == NULL){
       returnvalue = -1;
     }else{
-      //lock_acquire(&lock_filesystem);
       returnvalue = file_write(file_, buffer, size);
-      //lock_release(&lock_filesystem);
     }
   }
   return returnvalue;
@@ -389,9 +387,7 @@ syscall_read(int fd, void *buffer, unsigned size){
     if (file_ == NULL){
       returnvalue = -1;
     }else{
-      //lock_acquire(&lock_filesystem);
       returnvalue = file_read(file_, buffer, size);
-      //lock_release(&lock_filesystem);
     }
   }
 
@@ -452,10 +448,8 @@ syscall_create(const char *file_name, unsigned initial_size){
   //if (strlen(file_name) > 14)
   //  return false;
   int length = validate_string(file_name);
-  //lock_acquire(&lock_filesystem);
   //TODO: change this to create files probably only done in mkdir syscall
   bool success = filesys_create(file_name, initial_size, false);
-  //lock_release(&lock_filesystem);
   return success;
 }
 
@@ -464,9 +458,7 @@ syscall_create(const char *file_name, unsigned initial_size){
 bool
 syscall_remove(const char *file_name){
   int length = validate_string(file_name);
-  //lock_acquire(&lock_filesystem);
   bool success = filesys_remove(file_name);
-  //lock_release(&lock_filesystem);
   return success;
 }
 
@@ -476,10 +468,8 @@ int
 syscall_open(const char *file_name){
   //printf("DEBUG: open with '%s'\n", file_name);
   int length = validate_string(file_name);
-  //lock_acquire(&lock_filesystem);
   struct file *new_file = filesys_open(file_name);
   if (new_file == NULL){
-    //lock_release(&lock_filesystem);
     return -1;
   }
 
@@ -501,7 +491,6 @@ syscall_open(const char *file_name){
   t->current_fd += 1;
   current_entry->fd = current_fd;
   list_push_back (&t->file_list, &current_entry->elem);
-  //lock_release(&lock_filesystem);
   return current_fd;
 }
 
@@ -512,9 +501,7 @@ int syscall_filesize(int fd){
   if (file == NULL){
     return -1;
   }
-  //lock_acquire(&lock_filesystem);
   unsigned size = file_length(file);
-  //lock_release(&lock_filesystem);
   return size;
 }
 
@@ -594,9 +581,7 @@ void syscall_seek(int fd, unsigned position){
   if (file == NULL){
     syscall_exit(-1);
   }
-  //lock_acquire(&lock_filesystem);
   file_seek(file, position);
-  //lock_release(&lock_filesystem);
 }
 
 
@@ -607,20 +592,16 @@ unsigned syscall_tell(int fd){
   if (file == NULL){
     syscall_exit(-1);
   }
-  //lock_acquire(&lock_filesystem);
   unsigned pos = file_tell(file);
-  //lock_release(&lock_filesystem);
   return pos;
 }
 
 
 /* Closes the file with filedescriptor fd */
 void syscall_close(int fd){
-  //lock_acquire(&lock_filesystem);
   struct list_elem *element = get_list_elem(fd);
 
   if (element == NULL){
-    //lock_release(&lock_filesystem);
     return;
   }
   struct file_entry *f = list_entry (element, struct file_entry, elem);
@@ -632,7 +613,6 @@ void syscall_close(int fd){
     file_close(f->file);
   list_remove (element);
   free(f);
-  //lock_release(&lock_filesystem);
 }
 
 /* changes the directory of current thread to dir_name */
@@ -640,9 +620,7 @@ bool syscall_chdir(const char *dir_name)
 {
   bool success;
 
-  //lock_acquire(&lock_filesystem);
   success = filesys_chdir(dir_name);
-  //lock_release(&lock_filesystem);
 
   return success;
 }
@@ -652,10 +630,8 @@ bool syscall_mkdir(const char *dir_name)
 {
   bool success;
 
-  //lock_acquire(&lock_filesystem);
   // TODO check if size 0 is fine, but should be ok
   success = filesys_create(dir_name, 0, true);
-  //lock_release(&lock_filesystem);
 
   return success;
 }
@@ -664,7 +640,6 @@ bool
 syscall_readdir(int fd, const char *dir_name)
 {
   bool success = false;
-  //lock_acquire(&lock_filesystem);
   struct file_entry *file_entry = get_file_entry(fd);
   if (file_entry == NULL || file_entry->dir == NULL)
     goto done;
@@ -681,7 +656,6 @@ syscall_readdir(int fd, const char *dir_name)
 
 
  done:
-  //lock_release(&lock_filesystem);
   return success;
 }
 
@@ -689,7 +663,6 @@ bool
 syscall_isdir(int fd)
 {
   bool success = false;
-  //lock_acquire(&lock_filesystem);
 
   struct file_entry *file_entry = get_file_entry(fd);
 
@@ -718,7 +691,6 @@ syscall_isdir(int fd)
   }
 
  done:
-  //lock_release(&lock_filesystem);
   return success;
 }
 
@@ -727,7 +699,6 @@ syscall_inumber(int fd)
 {
   int inumber = -1;
 
-  //lock_acquire(&lock_filesystem);
   struct file_entry *file_entry = get_file_entry(fd);
 
   if(file_entry == NULL)
@@ -747,6 +718,5 @@ syscall_inumber(int fd)
   inumber = inode_get_inumber(inode);
 
  done:
-  //lock_release(&lock_filesystem);
   return inumber;
 }
