@@ -396,6 +396,9 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector, bool di
     inode_close(child_inode);
   }
 
+  struct inode *directory_inode = dir_get_inode(dir);
+  lock_acquire(&directory_inode->inode_directory_lock);
+
   /* Set OFS to offset of free slot.
      If there are no free slots, then it will be set to the
      current end-of-file.
@@ -417,6 +420,8 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector, bool di
   e.inode_sector = inode_sector;
   off_t bytes_written = inode_write_at (dir->inode, &e, sizeof e, ofs);
   // TODO check that written bytes are okay!
+
+  lock_release(&directory_inode->inode_directory_lock);
 
   // TODO if parts of the struct are written here this might break the dir!!
   if((bytes_written) != (1*(sizeof e))){
@@ -474,13 +479,19 @@ dir_remove (struct dir *dir, const char *name)
     }
   }
 
+  struct inode *directory_inode = dir_get_inode(dir);
+  lock_acquire(&directory_inode->inode_directory_lock);
+
   /* Erase directory entry by writing new entry with in_use=false */
   e.in_use = false;
   if (inode_write_at (dir->inode, &e, sizeof e, ofs) != sizeof e) 
   {
     //printf("DEBUG: inode overwrite of dir entry failed\n");
+    lock_release(&directory_inode->inode_directory_lock);
     goto done;
   }
+
+  lock_release(&directory_inode->inode_directory_lock);
 
   /* Remove inode. */
   //printf("DEBUG: removed '%s'\n", name); 

@@ -710,6 +710,7 @@ inode_open (block_sector_t sector)
   inode->directory = false;
   lock_init(&inode->inode_extend_lock);
   lock_init(&inode->inode_field_lock);
+  lock_init(&inode->inode_directory_lock);
 
   /* read inode from disk into disk_data */
   struct inode_disk disk_data;

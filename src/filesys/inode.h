@@ -95,7 +95,9 @@ struct inode
     off_t double_indirect_index;
 
     struct lock inode_extend_lock;
+    struct lock inode_directory_lock;
     struct lock inode_field_lock;
+
     /* pointers to blocks with file content: */
     block_sector_t direct_pointers[NUMBER_DIRECT_BLOCKS];               
     block_sector_t indirect_pointers[NUMBER_INDIRECT_BLOCKS];               
