@@ -101,9 +101,15 @@ filesys_cache_read(block_sector_t disk_sector, void *buffer, off_t sector_offset
   /* lookup has to hold the returned block cache lock */
   ASSERT(lock_held_by_current_thread(&lookup_cache_block->cache_field_lock));
   lookup_cache_block->accessed = true;
+  lookup_cache_block->read_writer_working += 1;
   lock_release(&lookup_cache_block->cache_field_lock);
   memcpy(buffer, (uint8_t *) &lookup_cache_block->cached_content + sector_offset, chunk_size);
   //printf("DEBUG: read cache END \n");
+
+
+  lock_acquire(&lookup_cache_block->cache_field_lock);
+  lookup_cache_block->read_writer_working -= 1;
+  lock_release(&lookup_cache_block->cache_field_lock);
 
   // read ahead
   //filesys_cache_thread_read_ahead(disk_sector + 1);
@@ -132,9 +138,13 @@ filesys_cache_write(block_sector_t disk_sector, void *buffer, off_t sector_offse
   ASSERT(lookup_cache_block->disk_sector == disk_sector);
   lookup_cache_block->accessed = true;
   lookup_cache_block->dirty = true;
+  lookup_cache_block->read_writer_working += 1;
   lock_release(&lookup_cache_block->cache_field_lock);
   memcpy((uint8_t *) &lookup_cache_block->cached_content + sector_offset, buffer, chunk_size);
   //printf("DEBUG: write cache END\n");
+  lock_acquire(&lookup_cache_block->cache_field_lock);
+  lookup_cache_block->read_writer_working -= 1;
+  lock_release(&lookup_cache_block->cache_field_lock);
 
   // read ahead
   //filesys_cache_thread_read_ahead(disk_sector + 1);
@@ -202,6 +212,12 @@ filesys_cache_block_evict() {
       lock_release(&iter_cache_block->cache_field_lock);
       next_evict_cache = (next_evict_cache + 1) % CACHE_SIZE;
     } else {
+      if (iter_cache_block->read_writer_working > 0){
+        /* dont evict entry if no readers / writers are currently working on it */
+        lock_release(&iter_cache_block->cache_field_lock);
+        next_evict_cache = (next_evict_cache + 1) % CACHE_SIZE;
+        continue;
+      }
       if (iter_cache_block->dirty)
         block_write(fs_device, iter_cache_block->disk_sector, &iter_cache_block->cached_content);
       next_evict_cache = (next_evict_cache + 1) % CACHE_SIZE;
