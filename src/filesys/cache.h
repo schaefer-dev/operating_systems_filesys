@@ -21,6 +21,8 @@ struct cache_block {
   bool dirty;
   int accessed_counter;
 
+  int read_writer_working;
+
   struct lock cache_field_lock;
 
   /* Cached content + disk sector */

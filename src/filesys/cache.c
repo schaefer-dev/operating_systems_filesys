@@ -27,6 +27,7 @@ filesys_cache_init(){
   }
 
   lock_init(&filesys_cache_lock);
+  lock_init(&filesys_cache_evict_lock);
   next_free_cache = 0;
   //printf("DEBUG: init terminated\n");
 
@@ -100,8 +101,8 @@ filesys_cache_read(block_sector_t disk_sector, void *buffer, off_t sector_offset
   /* lookup has to hold the returned block cache lock */
   ASSERT(lock_held_by_current_thread(&lookup_cache_block->cache_field_lock));
   lookup_cache_block->accessed = true;
-  memcpy(buffer, (uint8_t *) &lookup_cache_block->cached_content + sector_offset, chunk_size);
   lock_release(&lookup_cache_block->cache_field_lock);
+  memcpy(buffer, (uint8_t *) &lookup_cache_block->cached_content + sector_offset, chunk_size);
   //printf("DEBUG: read cache END \n");
 
   // read ahead
@@ -131,8 +132,8 @@ filesys_cache_write(block_sector_t disk_sector, void *buffer, off_t sector_offse
   ASSERT(lookup_cache_block->disk_sector == disk_sector);
   lookup_cache_block->accessed = true;
   lookup_cache_block->dirty = true;
-  memcpy((uint8_t *) &lookup_cache_block->cached_content + sector_offset, buffer, chunk_size);
   lock_release(&lookup_cache_block->cache_field_lock);
+  memcpy((uint8_t *) &lookup_cache_block->cached_content + sector_offset, buffer, chunk_size);
   //printf("DEBUG: write cache END\n");
 
   // read ahead
@@ -154,6 +155,7 @@ filesys_cache_block_allocate(block_sector_t disk_sector, bool write_access) {
     new_cache_block->dirty = write_access;
     new_cache_block->disk_sector = disk_sector;
     new_cache_block->accessed_counter = 0;
+    new_cache_block->read_writer_working = 0;
     lock_init(&new_cache_block->cache_field_lock);
     /* write content of disk_sector to cached_content array */
     block_read(fs_device, disk_sector, new_cache_block->cached_content);
@@ -166,7 +168,8 @@ filesys_cache_block_allocate(block_sector_t disk_sector, bool write_access) {
 
   } else {
     /* case for eviction */
-    lock_release(&filesys_cache_lock);
+    // TODO probably not neccesary to keep evict lock, think about it
+    lock_acquire(&filesys_cache_evict_lock);
     struct cache_block *replace_cache_block = filesys_cache_block_evict();
     ASSERT(lock_held_by_current_thread(&replace_cache_block->cache_field_lock));
 
@@ -174,8 +177,11 @@ filesys_cache_block_allocate(block_sector_t disk_sector, bool write_access) {
     replace_cache_block->dirty = write_access;
     replace_cache_block->disk_sector = disk_sector;
     replace_cache_block->accessed_counter = 0;
+    replace_cache_block->read_writer_working = 0;
     /* write content of disk_sector to cached_content array */
     block_read(fs_device, disk_sector, replace_cache_block->cached_content);
+    lock_release(&filesys_cache_evict_lock);
+    lock_release(&filesys_cache_lock);
     return replace_cache_block;
   }
 }
@@ -184,6 +190,9 @@ filesys_cache_block_allocate(block_sector_t disk_sector, bool write_access) {
 /* simple clock algorithm to evict cache */
 struct cache_block*
 filesys_cache_block_evict() {
+  ASSERT(lock_held_by_current_thread(&filesys_cache_evict_lock));
+  ASSERT(lock_held_by_current_thread(&filesys_cache_lock));
+
   while(true) {
     struct cache_block *iter_cache_block = cache_array[next_evict_cache];
     lock_acquire(&iter_cache_block->cache_field_lock);
@@ -196,6 +205,7 @@ filesys_cache_block_evict() {
       if (iter_cache_block->dirty)
         block_write(fs_device, iter_cache_block->disk_sector, &iter_cache_block->cached_content);
       next_evict_cache = (next_evict_cache + 1) % CACHE_SIZE;
+      /* holds iter_cache_block lock on return */
       return iter_cache_block;
     }
   }
@@ -219,13 +229,16 @@ filesys_cache_thread_read_ahead (block_sector_t disk_sector) {
 }
 
 
-/* write cache back to disk if dirty, runs into OPPOSITE direction of 
+/* function called periodically
+   to write cache back to disk if dirty, runs into OPPOSITE direction of 
    evict to avoid slowdown caused by locking iteratively over array */
 void
 filesys_cache_writeback() {
   //printf("DEBUG writeback BEGIN\n");
 
+  lock_acquire(&filesys_cache_lock);
   int iterator = next_free_cache - 1;
+  lock_release(&filesys_cache_lock);
 
   while (iterator >= 0) {
     //printf("DEBUG writeback iter\n");
