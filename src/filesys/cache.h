@@ -13,6 +13,7 @@
 // TODO additional hashmap from disk_sector -> cache_block to speed up lookup
 
 struct lock filesys_cache_lock;
+struct lock filesys_cache_evict_lock;
 
 struct cache_block {
   /* METADATA */
@@ -20,7 +21,7 @@ struct cache_block {
   bool dirty;
   int accessed_counter;
 
-  struct lock cache_block_lock;
+  struct lock cache_field_lock;
 
   /* Cached content + disk sector */
   uint8_t cached_content[BLOCK_SECTOR_SIZE];

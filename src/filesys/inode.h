@@ -84,6 +84,7 @@ struct inode
     bool removed;                       /* True if deleted, false otherwise. */
     int deny_write_cnt;                 /* 0: writes ok, >0: deny writes. */
     off_t data_length;                  /* length of the file in bytes */
+    off_t reader_length;                /* length of the file in bytes */
     bool directory;
     /* TODO initilized with 0, this might be an issue later */
     block_sector_t parent;
@@ -94,6 +95,7 @@ struct inode
     off_t double_indirect_index;
 
     struct lock inode_extend_lock;
+    struct lock inode_field_lock;
     /* pointers to blocks with file content: */
     block_sector_t direct_pointers[NUMBER_DIRECT_BLOCKS];               
     block_sector_t indirect_pointers[NUMBER_INDIRECT_BLOCKS];               

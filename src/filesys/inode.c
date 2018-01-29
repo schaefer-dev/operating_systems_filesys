@@ -273,6 +273,9 @@ debug_verify_inode(struct inode *inode, struct inode_disk *inode_disk)
 bool
 inode_grow(struct inode *inode, struct inode_disk *inode_disk, off_t size, off_t offset)
 {
+  if (inode != NULL){
+    ASSERT(lock_held_by_current_thread(&inode->inode_extend_lock));
+  }
   // TODO: assert lock is already hold
   //printf("DEBUG: call grow with size: %i, and offset: %i\n", size, offset);
   uint8_t zero_sector[BLOCK_SECTOR_SIZE]; 
@@ -398,13 +401,11 @@ inode_grow(struct inode *inode, struct inode_disk *inode_disk, off_t size, off_t
 
   /* updating struct values */
   if (inode != NULL) {
-    inode->data_length = new_size;
     inode->index_level = index_level;
     inode->current_index = current_index;
     inode->indirect_index = indirect_index;
     inode->double_indirect_index = double_indirect_index;
   } else {
-    inode_disk->length = new_size;
     inode_disk->index_level = index_level;
     inode_disk->current_index = current_index;
     inode_disk->indirect_index = indirect_index;
@@ -419,6 +420,7 @@ inode_grow(struct inode *inode, struct inode_disk *inode_disk, off_t size, off_t
 void
 inode_deallocate (struct inode *inode)
 {
+  lock_acquire(&inode->inode_field_lock);
   off_t length = inode->data_length;
   unsigned index_level = inode->index_level;
   block_sector_t *direct_pointers = inode->direct_pointers;
@@ -427,6 +429,7 @@ inode_deallocate (struct inode *inode)
   off_t current_index = inode->current_index;
   off_t indirect_index = inode->indirect_index;
   off_t double_indirect_index = inode->double_indirect_index;
+  lock_release(&inode->inode_field_lock);
 
   size_t num_of_sectors = number_of_sectors(length);
 
@@ -538,7 +541,7 @@ byte_to_sector (const struct inode *inode, off_t pos)
   ASSERT (inode != NULL);
 
   if (pos >= inode->data_length){
-    printf("DEBUG: byte_to_sector returned -1, because outside length\n");
+    //printf("DEBUG: byte_to_sector returned -1, because outside length\n");
     return -1;
   }
 
@@ -642,6 +645,7 @@ inode_create (block_sector_t sector, off_t length, bool directory)
       disk_inode->directory = directory;
       disk_inode->parent = PARENT_MAGIC;
       inode_grow(NULL, disk_inode, length, 0);
+      disk_inode->length = length;
       if (length > MAX_FILESIZE)
         disk_inode->length = MAX_FILESIZE;
       else
@@ -705,11 +709,13 @@ inode_open (block_sector_t sector)
   inode->parent = PARENT_MAGIC;
   inode->directory = false;
   lock_init(&inode->inode_extend_lock);
+  lock_init(&inode->inode_field_lock);
 
   /* read inode from disk into disk_data */
   struct inode_disk disk_data;
   filesys_cache_read(inode->sector, &disk_data, 0, BLOCK_SECTOR_SIZE);
   inode->data_length = disk_data.length;
+  inode->reader_length = disk_data.length;
   inode->index_level = disk_data.index_level;
   inode->current_index = disk_data.current_index;
   inode->indirect_index = disk_data.indirect_index;
@@ -821,9 +827,12 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
   uint8_t *bounce = NULL;
 
   /* cant read past size of inode */
-  if (inode_length(inode) <= offset) {
+  lock_acquire(&inode->inode_field_lock);
+  if (inode_reader_length(inode) <= offset) {
+    lock_release(&inode->inode_field_lock);
     return 0;
   }
+  lock_release(&inode->inode_field_lock);
 
   while (size > 0) 
     {
@@ -832,7 +841,7 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
       int sector_ofs = offset % BLOCK_SECTOR_SIZE;
 
       /* Bytes left in inode, bytes left in sector, lesser of the two. */
-      off_t inode_left = inode_length (inode) - offset;
+      off_t inode_left = inode_reader_length (inode) - offset;
       int sector_left = BLOCK_SECTOR_SIZE - sector_ofs;
       int min_left = inode_left < sector_left ? inode_left : sector_left;
 
@@ -862,26 +871,35 @@ off_t
 inode_write_at (struct inode *inode, const void *buffer_, off_t size,
                 off_t offset) 
 {
+  bool was_extended = false;
+  off_t new_length_after_extend;
 
-  //printf("DEBUG: inode_write_at start\n");
+  if (inode->deny_write_cnt)
+    return 0;
+ 
+  lock_acquire(&inode->inode_field_lock);
+  new_length_after_extend = inode->data_length;
   if (size + offset > inode->data_length){
     lock_acquire(&inode->inode_extend_lock);
-    if (!inode_grow (inode, NULL, size, offset))
+    lock_release(&inode->inode_field_lock);
+    if (!inode_grow (inode, NULL, size, offset)){
+      lock_release(&inode->inode_extend_lock);
       return 0;
+    }
     inode->data_length = size + offset;
-    lock_release(&inode->inode_extend_lock);
+    new_length_after_extend = size + offset;
+    was_extended = true;
     // TODO don't extend length in grow, do it after write is complete!
-    if (!debug_verify_inode(inode, NULL))
-      printf("DEBUG: Above fails caused by fail after grow \n\n");
+    //if (!debug_verify_inode(inode, NULL))
+    //  printf("DEBUG: Above fails caused by fail after grow \n\n");
     //TODO: release lock
+  } else {
+    lock_release(&inode->inode_field_lock);
   }
 
   const uint8_t *buffer = buffer_;
   off_t bytes_written = 0;
-  uint8_t *bounce = NULL;
 
-  if (inode->deny_write_cnt)
-    return 0;
 
   while (size > 0) 
     {
@@ -890,7 +908,7 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
       int sector_ofs = offset % BLOCK_SECTOR_SIZE;
 
       /* Bytes left in inode, bytes left in sector, lesser of the two. */
-      off_t inode_left = inode_length (inode) - offset;
+      off_t inode_left = new_length_after_extend - offset;
       int sector_left = BLOCK_SECTOR_SIZE - sector_ofs;
       int min_left = inode_left < sector_left ? inode_left : sector_left;
 
@@ -907,7 +925,11 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
       offset += chunk_size;
       bytes_written += chunk_size;
     }
-  free(bounce);
+
+  if (was_extended){
+    inode->reader_length = size + offset;
+    lock_release(&inode->inode_extend_lock);
+  }
   //printf("DEBUG: inode_write_at end\n");
   return bytes_written;
 }
@@ -937,6 +959,13 @@ off_t
 inode_length (struct inode *inode)
 {
   return inode->data_length;
+}
+
+/* Returns the length, in bytes, of INODE's data which can already be used by readers */
+off_t
+inode_reader_length (struct inode *inode)
+{
+  return inode->reader_length;
 }
 
 block_sector_t
