@@ -9,11 +9,6 @@ memcpy (void *dst_, const void *src_, size_t size)
   unsigned char *dst = dst_;
   const unsigned char *src = src_;
 
-  if (src == NULL){
-    printf("DEBUG: memcpy went wrong!\n");
-    debug_backtrace();
-  }
-
   ASSERT (dst != NULL || size == 0);
   ASSERT (src != NULL || size == 0);
 

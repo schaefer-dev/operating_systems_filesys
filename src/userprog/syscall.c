@@ -19,8 +19,6 @@
 
 static void syscall_handler (struct intr_frame *);
 
-static int max_file_name = 14;
-
 void syscall_init (void);
 void validate_pointer(const void* pointer);
 void validate_buffer(const void* buffer, unsigned size);
@@ -44,7 +42,7 @@ void syscall_close(int fd);
 struct list_elem* get_list_elem(int fd);
 bool syscall_mkdir(const char *dir_name);
 bool syscall_chdir(const char *dir_name);
-bool syscall_readdir(int fd, const char *dir_name);
+bool syscall_readdir(int fd, char *dir_name);
 bool syscall_isdir(int fd);
 int syscall_inumber(int fd);
 
@@ -444,11 +442,7 @@ syscall_exec(const char *cmd_line){
    NOTE: it does not open the file! */
 bool
 syscall_create(const char *file_name, unsigned initial_size){
-  // TODO if we remove the string length test something goes wrong!
-  //if (strlen(file_name) > 14)
-  //  return false;
-  int length = validate_string(file_name);
-  //TODO: change this to create files probably only done in mkdir syscall
+  validate_string(file_name);
   bool success = filesys_create(file_name, initial_size, false);
   return success;
 }
@@ -457,7 +451,7 @@ syscall_create(const char *file_name, unsigned initial_size){
 /* deletes the file file_name and returns true if successful, false otherwise */
 bool
 syscall_remove(const char *file_name){
-  int length = validate_string(file_name);
+  validate_string(file_name);
   bool success = filesys_remove(file_name);
   return success;
 }
@@ -467,7 +461,7 @@ syscall_remove(const char *file_name){
 int
 syscall_open(const char *file_name){
   //printf("DEBUG: open with '%s'\n", file_name);
-  int length = validate_string(file_name);
+  validate_string(file_name);
   struct file *new_file = filesys_open(file_name);
   if (new_file == NULL){
     return -1;
@@ -637,7 +631,7 @@ bool syscall_mkdir(const char *dir_name)
 }
 
 bool
-syscall_readdir(int fd, const char *dir_name)
+syscall_readdir(int fd, char *dir_name)
 {
   bool success = false;
   struct file_entry *file_entry = get_file_entry(fd);
@@ -676,8 +670,9 @@ syscall_isdir(int fd)
     struct file *file = file_entry->file;
     ASSERT(file!=NULL);
     struct inode *inode = file_get_inode(file);
-    if (inode != NULL)
+    if (inode != NULL){
       ASSERT(!inode_is_directory(inode))
+    }
     goto done;
   } else {
     struct dir *dir = file_entry->dir;

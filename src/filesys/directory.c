@@ -223,7 +223,8 @@ dir_open_path(const char* path)
 struct dir*
 dir_create_root (block_sector_t sector, size_t entry_cnt)
 {
-  bool success = inode_create (sector, entry_cnt * sizeof (struct dir_entry), true);
+  if (!inode_create (sector, entry_cnt * sizeof (struct dir_entry), true))
+    return NULL;
 
   struct inode *root_inode = inode_open (sector);
   inode_set_parent_to_inode(root_inode, root_inode);
@@ -411,9 +412,6 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector, bool di
     if (!e.in_use)
       break;
 
-  /* parent directory initially has to contain at least 0 entries */ 
-  ASSERT(ofs >= (0*(sizeof e)));
-    
   /* Write slot. */
   e.in_use = true;
   strlcpy (e.name, name, sizeof e.name);
@@ -514,10 +512,6 @@ dir_readdir (struct dir *dir, char name[NAME_MAX + 1])
 
   while (inode_read_at (dir->inode, &e, sizeof e, dir->pos) == sizeof e) 
     {
-      if (dir->pos < (0 * sizeof e)){
-        dir->pos += sizeof e;
-        continue;
-      }
       dir->pos += sizeof e;
       if (e.in_use)
         {
