@@ -204,6 +204,10 @@ thread_create (const char *name, int priority,
      child process and set parent to parent thread */
   t->child_process = add_child(tid, thread_tid());
 
+  /* inherits the current working directory if the parent
+    thread has a current working directory; otherwise it will
+    be set to NULL and initialized to the root directory in 
+    start process */
   struct thread *current_thread = thread_current();
   if (current_thread->current_working_dir != NULL){
       t->current_working_dir = dir_reopen(current_thread->current_working_dir);
