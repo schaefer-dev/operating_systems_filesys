@@ -29,8 +29,124 @@ Christian Bohnenberger <s9cnbohn@stud.uni-saarland.de>
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+//TODO: check if "define" has to be added
+
+in inode.h:
+/* struct which describes indirect_block which contains NUMBER_INDIRECT_POINTERS
+   amount of pointers */
+struct indirect_block
+  {
+    block_sector_t block_pointers[NUMBER_INDIRECT_POINTERS];
+  };
+
+
+struct bitmap;
+
+/* On-disk inode.
+   Must be exactly BLOCK_SECTOR_SIZE bytes long. */
+struct inode_disk
+ {
+    off_t length;                       /* File size in bytes. */
+    unsigned magic;                     /* Magic number. */
+    bool directory;                     /* indicates if inode is a directory*/
+    block_sector_t parent;              /* block sector of parent */
+    unsigned index_level;               /* level 0 -> direct, 1->indirect,
+                                           2->double-indirect */
+    off_t current_index;                /* stores current index */
+    off_t indirect_index;               /* indirect index */
+    off_t double_indirect_index;        /* double indirect index */
+    uint32_t unused[NUMBER_UNUSED_BYTES];                /* not used */
+    /* pointers to blocks with file content: */
+    block_sector_t direct_pointers[NUMBER_DIRECT_BLOCKS];               
+    block_sector_t indirect_pointers[NUMBER_INDIRECT_BLOCKS];               
+    block_sector_t double_indirect_pointers[NUMBER_DOUBLE_INDIRECT_BLOCKS];               
+  };
+
+
+/* In-memory inode. */
+struct inode 
+  {
+    struct list_elem elem;              /* Element in inode list. */
+    block_sector_t sector;              /* Sector number of disk location. */
+    int open_cnt;                       /* Number of openers. */
+    bool removed;                       /* True if deleted, false otherwise. */
+    int deny_write_cnt;                 /* 0: writes ok, >0: deny writes. */
+    off_t data_length;                  /* length of the file in bytes */
+    off_t reader_length;                /* length of the file in bytes */
+    bool directory;                     /* indicates if inode is a directory*/
+    block_sector_t parent;              /* block sector of parent */
+
+    /* stores index structure information */
+    unsigned index_level;               /* level 0 -> direct, 1->indirect,
+     2->double-indirect */
+    off_t current_index;
+    off_t indirect_index;
+    off_t double_indirect_index;
+
+    struct lock inode_extend_lock;      /* synchronises extension of file */
+    struct lock inode_directory_lock;   /* lock to synchronise removing and
+                                            adding of directories */
+    struct lock inode_field_lock;       /* synchronies metadata */
+
+    /* pointers to blocks with file content: */
+    block_sector_t direct_pointers[NUMBER_DIRECT_BLOCKS];               
+    block_sector_t indirect_pointers[NUMBER_INDIRECT_BLOCKS];               
+    block_sector_t double_indirect_pointers[NUMBER_DOUBLE_INDIRECT_BLOCKS];              
+  };
+
+Explanations: 
+1.) struct indirect blocks: struct which describes indirect_block which 
+contains NUMBER_INDIRECT_POINTER amount of pointers
+
+2.) struct inode disk: describes an on-disk inode.
+Fiels in struct:
+- off_t length: indicates the file size in bytes
+- unsigned magic: magic number
+- bool directory: boolean which stores if the inode is handled as normal file
+or a directory (true if inode is directory)
+- block_sector_t parent: stores the block_sector of the parent to open the
+parent directory (only used if inode is directory)
+- unsigned index_level: stores the current index level; 0 indicates direct 
+blocks; 1 means indirect blocks; 2 means double indirect blocks
+- off_t current_index: saves the next free index on the top-level layer
+(direct block index, or the position in the indirect block array)
+- off_t indirect_index: current offest within a indirect or the number of the
+current indirect block in double indexed block
+- off_t double_indirect_index: current index in the last in case of double
+indirect blocks (only used for double indirect blocks)
+- uint32_t unused[NUMBER_UNUSED_BYTES]: used to page-aligne the inode_disk
+struct
+- block_sector_t direct_pointers[NUMBER_DIRECT_BLOCKS]: array which stores
+all direct pointer of length NUMBER_DIRECT_BLOCKS
+- block_sector_t indirect_pointers[NUMBER_INDIRECT_BLOCKS]: array which stores
+the indirect block pointers of length NUMBER_INDIRECT_BLOCKS
+- block_sector_t double_indirect_pointers[NUMBER_DOUBLE_INDIRECT_BLOCKS]:
+array which stores the double indirect block pointers of length
+NUMBER_DOUBLE_INDIRECT_BLOCKS
+
+3.) struct inode: structure to store inodes
+Fields:
+similar to disk_inode however without unused bytes but with some locks to
+ensure secure synchronisation:
+- struct lock inode_extend_lock: synchronises extension of file and ensures
+that only one file can grow at a time
+- struct lock inode_directory_lock: lock to synchronise removing and 
+adding of directories to prevent adding 2 directories at a time etc.
+- struct lock inode_field_lock: synchronies metadata to ensure consistency
+of the inode metadata
+
+- off_t data_length: indicates the length of a file in bytes this is set
+during a write which needs a file extension to ensure save reads and file
+extension
+- off_t reader_length: length of the file in bytes only visible for readers
+to prevent reading wrong bytes during a file extension
+
+
 >> A2: What is the maximum size of a file supported by your inode
 >> structure?  Show your work.
+
+//TODO: probably pointer are changed (NUMBER_DIRECT_POINTER,...)
+
 
 ---- SYNCHRONIZATION ----
 
