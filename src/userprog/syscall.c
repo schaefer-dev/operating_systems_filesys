@@ -668,7 +668,7 @@ syscall_isdir(int fd)
     success = false;
     /* should not be needed */
     struct file *file = file_entry->file;
-    ASSERT(file!=NULL);
+    ASSERT(file != NULL);
     struct inode *inode = file_get_inode(file);
     if (inode != NULL){
       ASSERT(!inode_is_directory(inode))

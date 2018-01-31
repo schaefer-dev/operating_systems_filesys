@@ -29,8 +29,6 @@ struct dir_entry
 void
 parse_string_to_path_file(const char *string, char *path, char *file_name)
 {
-    bool is_absolute_path = false;
-
     if (string == NULL || strlen(string) == 0)
       return;
 
@@ -46,7 +44,6 @@ parse_string_to_path_file(const char *string, char *path, char *file_name)
     char *path_writer = path;
 
     if (temp[0] == '/'){
-      is_absolute_path = true;
       *path_writer = '/';
       path_writer += 1;
     }

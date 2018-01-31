@@ -27,6 +27,7 @@ void inode_deallocate_indirect_sectors(block_sector_t *sectors, size_t num_of_se
 void inode_deallocate_double_indirect_sectors(block_sector_t *sectors, size_t num_of_sectors);
 
 bool inode_grow(struct inode *inode, struct inode_disk *inode_disk, off_t size, off_t offset);
+off_t inode_reader_length (struct inode *inode);
 
 /* List of open inodes, so that opening a single inode twice
    returns the same `struct inode'. */
@@ -164,19 +165,13 @@ inode_allocate_double_indirect_sectors(block_sector_t *sectors, size_t num_of_se
   size_t double_indirect_iterator = start_index_double_indirect;
   struct indirect_block double_indirect_block;
 
-  uint8_t zero_sector[BLOCK_SECTOR_SIZE]; 
-  int zero_iterator = 0;
-  for (zero_iterator = 0; zero_iterator < BLOCK_SECTOR_SIZE; zero_iterator++){
-    zero_sector[zero_iterator] = 0;
-  }
-
   if (start_index_indirect == 0 && start_index_double_indirect == 0){
     success &= free_map_allocate (1, sectors);
   } else {
     filesys_cache_read(*sectors, &double_indirect_block, 0, BLOCK_SECTOR_SIZE);
   }
 
-  while (number_of_sectors > 0) {
+  while ((unsigned) number_of_sectors > 0) {
     size_t sectors_to_write = 0;
     if (num_of_sectors + double_indirect_iterator > NUMBER_INDIRECT_POINTERS)
       sectors_to_write = NUMBER_INDIRECT_POINTERS - double_indirect_iterator;
@@ -195,75 +190,6 @@ inode_allocate_double_indirect_sectors(block_sector_t *sectors, size_t num_of_se
 
   filesys_cache_write(*sectors, &double_indirect_block, 0, BLOCK_SECTOR_SIZE);
 
-  return success;
-}
-
-
-bool
-debug_verify_sector(block_sector_t sector){
-  return verify_sector(fs_device, sector);
-}
-
-
-/* verifies all sectors which are allocated in this inode (only supports direct / indirect) */
-bool
-debug_verify_inode(struct inode *inode, struct inode_disk *inode_disk)
-{
-  off_t length;
-  block_sector_t *direct_pointers;
-  block_sector_t *indirect_pointers;
-  block_sector_t *double_indirect_pointers;
-  if (inode != NULL){
-    length = inode->data_length;
-    direct_pointers = inode->direct_pointers;
-    indirect_pointers = inode->indirect_pointers;
-    double_indirect_pointers = inode->double_indirect_pointers;
-  } else {
-    length = inode_disk->length;
-    direct_pointers = inode_disk->direct_pointers;
-    indirect_pointers = inode_disk->indirect_pointers;
-    double_indirect_pointers = inode_disk->double_indirect_pointers;
-  }
-
-  off_t sectors_to_check = number_of_sectors(length);
-
-  off_t current_index = 0;
-  off_t indirect_index = 0;
-  off_t double_indirect_index = 0;
-
-  bool success = true;
-
-  /* verification of all direct blocks */
-  while (sectors_to_check > 0 && current_index < NUMBER_DIRECT_BLOCKS){
-    bool check = debug_verify_sector(direct_pointers[current_index]);
-    success &= check;
-    if (!check)
-      printf("     DEBUG: fail at: DIRECT: %u %u \n", current_index, indirect_index);
-    current_index += 1;
-    sectors_to_check -= 1;
-  }
-
-  current_index = 0;
-
-  /* verification of all indirect blocks */
-  while (sectors_to_check > 0 && current_index < NUMBER_INDIRECT_BLOCKS) {
-    indirect_index = 0;
-    struct indirect_block indirect_block;
-    bool check = debug_verify_sector(indirect_pointers[current_index]);
-    filesys_cache_read(indirect_pointers[current_index], &indirect_block, 0, BLOCK_SECTOR_SIZE);
-    success &= check;
-      if (!check)
-        printf("     DEBUG: fail at: ROOT-INDIRECT: %u %u \n", current_index, indirect_index);
-    while (sectors_to_check > 0 && indirect_index < NUMBER_INDIRECT_POINTERS) {
-      bool check = debug_verify_sector(indirect_block.block_pointers[indirect_index]);
-      success &= check;
-      if (!check)
-        printf("     DEBUG: fail at: INSIDE-INDIRECT: %u %u \n", current_index, indirect_index);
-      indirect_index += 1;
-      sectors_to_check -= 1;
-    }
-    current_index += 1;
-  }
   return success;
 }
 
@@ -427,8 +353,6 @@ inode_deallocate (struct inode *inode)
   block_sector_t *indirect_pointers = inode->indirect_pointers;
   block_sector_t *double_indirect_pointers = inode->double_indirect_pointers;
   off_t current_index = inode->current_index;
-  off_t indirect_index = inode->indirect_index;
-  off_t double_indirect_index = inode->double_indirect_index;
   lock_release(&inode->inode_field_lock);
 
   size_t num_of_sectors = number_of_sectors(length);
@@ -568,9 +492,6 @@ byte_to_sector (const struct inode *inode, off_t pos)
   } 
 
  done:
-  if (!debug_verify_sector(return_sector))
-    printf("DEBUG: byte_to_sector returns invalid sector!!!\n");
-
   return return_sector;
 }
 
@@ -580,7 +501,6 @@ static block_sector_t
 byte_to_sector_indirect (const struct inode *inode, off_t pos)
 {
   struct indirect_block temp_indirect_block;
-  uint32_t index;
 
   off_t indirect_pos = pos - (NUMBER_DIRECT_BLOCKS * BLOCK_SECTOR_SIZE);
 
@@ -605,7 +525,6 @@ byte_to_sector_double_indirect (const struct inode *inode, off_t pos)
 
   off_t current_index = 0;
   off_t indirect_index = (double_indirect_pos / BLOCK_SECTOR_SIZE) / NUMBER_INDIRECT_POINTERS;
-  off_t double_indirect_index = (double_indirect_pos / BLOCK_SECTOR_SIZE) % NUMBER_INDIRECT_POINTERS;
 
   /* read the double indirect block into temporary representation */
   filesys_cache_read(inode->double_indirect_pointers[current_index], &temp_double_indirect_block, 0, BLOCK_SECTOR_SIZE);
@@ -919,7 +838,7 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
         break;
 
 
-      filesys_cache_write(sector_idx, buffer + bytes_written, sector_ofs, chunk_size);
+      filesys_cache_write(sector_idx, (void*)(buffer + bytes_written), sector_ofs, chunk_size);
 
       /* Advance. */
       size -= chunk_size;
