@@ -26,10 +26,12 @@
 #define NUMBER_INDIRECT_BLOCKS 5
 #define NUMBER_DOUBLE_INDIRECT_BLOCKS 1
 
-#define NUMBER_UNUSED_BYTES (128 - 8 - NUMBER_DIRECT_BLOCKS - NUMBER_INDIRECT_BLOCKS - NUMBER_DOUBLE_INDIRECT_BLOCKS)
+#define NUMBER_UNUSED_BYTES (128 - 8 - NUMBER_DIRECT_BLOCKS - 
+  NUMBER_INDIRECT_BLOCKS - NUMBER_DOUBLE_INDIRECT_BLOCKS)
 
 /* overall number of pointers in inode */
-#define NUMBER_INODE_POINTERS (NUMBER_DIRECT_BLOCKS + NUMBER_INDIRECT_BLOCKS + NUMBER_DOUBLE_INDIRECT_BLOCKS)
+#define NUMBER_INODE_POINTERS (NUMBER_DIRECT_BLOCKS + NUMBER_INDIRECT_BLOCKS
+  + NUMBER_DOUBLE_INDIRECT_BLOCKS)
 
 /* number of pointers contained in a indirect block */
 #define NUMBER_INDIRECT_POINTERS 128
@@ -38,9 +40,15 @@
 
 
 
-#define MAX_FILESIZE ((NUMBER_DIRECT_BLOCKS + NUMBER_INDIRECT_BLOCKS * NUMBER_INDIRECT_POINTERS + NUMBER_DOUBLE_INDIRECT_BLOCKS * NUMBER_INDIRECT_POINTERS * NUMBER_INDIRECT_POINTERS) * BLOCK_SECTOR_SIZE)
-#define INDIRECT_BLOCKS_END ((NUMBER_DIRECT_BLOCKS + NUMBER_INDIRECT_BLOCKS * NUMBER_INDIRECT_POINTERS) * BLOCK_SECTOR_SIZE)
-#define DOUBLE_INDIRECT_BLOCKS_END ((NUMBER_DIRECT_BLOCKS + NUMBER_INDIRECT_BLOCKS * NUMBER_INDIRECT_POINTERS + NUMBER_DOUBLE_INDIRECT_BLOCKS * NUMBER_INDIRECT_POINTERS * NUMBER_INDIRECT_POINTERS) * BLOCK_SECTOR_SIZE)
+#define MAX_FILESIZE ((NUMBER_DIRECT_BLOCKS + NUMBER_INDIRECT_BLOCKS
+  * NUMBER_INDIRECT_POINTERS + NUMBER_DOUBLE_INDIRECT_BLOCKS *
+  NUMBER_INDIRECT_POINTERS * NUMBER_INDIRECT_POINTERS) * BLOCK_SECTOR_SIZE)
+#define INDIRECT_BLOCKS_END ((NUMBER_DIRECT_BLOCKS + NUMBER_INDIRECT_BLOCKS
+  * NUMBER_INDIRECT_POINTERS) * BLOCK_SECTOR_SIZE)
+#define DOUBLE_INDIRECT_BLOCKS_END ((NUMBER_DIRECT_BLOCKS + 
+  NUMBER_INDIRECT_BLOCKS * NUMBER_INDIRECT_POINTERS + 
+  NUMBER_DOUBLE_INDIRECT_BLOCKS * NUMBER_INDIRECT_POINTERS * 
+  NUMBER_INDIRECT_POINTERS) * BLOCK_SECTOR_SIZE)
 
 
 
@@ -60,13 +68,13 @@ struct inode_disk
  {
     off_t length;                       /* File size in bytes. */
     unsigned magic;                     /* Magic number. */
-    bool directory;
-    /* TODO initilized with 0, this might be an issue later */
-    block_sector_t parent;
-    unsigned index_level;               /* level 0 -> direct, 1->indirect, 2->double-indirect */
-    off_t current_index;
-    off_t indirect_index;
-    off_t double_indirect_index;
+    bool directory;                     /* indicates if inode is a directory*/
+    block_sector_t parent;              /* block sector of parent */
+    unsigned index_level;               /* level 0 -> direct, 1->indirect,
+                                           2->double-indirect */
+    off_t current_index;                /* stores current index */
+    off_t indirect_index;               /* indirect index */
+    off_t double_indirect_index;        /* double indirect index */
     uint32_t unused[NUMBER_UNUSED_BYTES];                /* not used */
     /* pointers to blocks with file content: */
     block_sector_t direct_pointers[NUMBER_DIRECT_BLOCKS];               
@@ -85,18 +93,20 @@ struct inode
     int deny_write_cnt;                 /* 0: writes ok, >0: deny writes. */
     off_t data_length;                  /* length of the file in bytes */
     off_t reader_length;                /* length of the file in bytes */
-    bool directory;
-    /* TODO initilized with 0, this might be an issue later */
-    block_sector_t parent;
+    bool directory;                     /* indicates if inode is a directory*/
+    block_sector_t parent;              /* block sector of parent */
 
-    unsigned index_level;               /* level 0 -> direct, 1->indirect, 2->double-indirect */
+    /* stores index structure information */
+    unsigned index_level;               /* level 0 -> direct, 1->indirect,
+     2->double-indirect */
     off_t current_index;
     off_t indirect_index;
     off_t double_indirect_index;
 
-    struct lock inode_extend_lock;
-    struct lock inode_directory_lock;
-    struct lock inode_field_lock;
+    struct lock inode_extend_lock;      /* synchronises extension of file */
+    struct lock inode_directory_lock;   /* lock to synchronise removing and
+                                            adding of directories */
+    struct lock inode_field_lock;       /* synchronies metadata */
 
     /* pointers to blocks with file content: */
     block_sector_t direct_pointers[NUMBER_DIRECT_BLOCKS];               
