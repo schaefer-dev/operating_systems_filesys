@@ -12,10 +12,22 @@
 struct cache_block *filesys_cache_lookup(block_sector_t disk_sector);
 struct cache_block *filesys_cache_block_allocate(block_sector_t disk_sector, bool write_access);
 struct cache_block *filesys_cache_block_evict(void);
-void filesys_cache_thread_read_ahead(block_sector_t disk_sector);
+void filesys_read_ahead_thread(void* aux UNUSED);
+void filesys_cache_queue_read_ahead(block_sector_t disk_sector);
 void filesys_cache_periodic_writeback(void* aux UNUSED);
 struct cache_block *filesys_cache_access(block_sector_t disk_sector, bool write_access, bool recoursive);
 
+#define MAX_READ_AHEAD_SIZE 32
+
+struct lock read_ahead_lock;
+struct list read_ahead_queue;
+struct semaphore read_ahead_semaphore;
+int read_ahead_queue_size;
+
+struct read_ahead_entry {
+  block_sector_t disk_sector;
+  struct list_elem elem;
+};
 
 /* initializes cache structure */
 void
@@ -28,12 +40,18 @@ filesys_cache_init(){
 
   lock_init(&filesys_cache_lock);
   lock_init(&filesys_cache_evict_lock);
+  lock_init(&read_ahead_lock);
+  list_init(&read_ahead_queue);
+  sema_init(&read_ahead_semaphore, 0);
+  read_ahead_queue_size = 0;
+
   next_free_cache = 0;
   next_evict_cache = 0;
   //printf("DEBUG: init terminated\n");
 
   // TODO enable periodic writeback again!
-  //thread_create("periodic_writeback", 0, filesys_cache_periodic_writeback , NULL);
+  thread_create("periodic_writeback", 0, filesys_cache_periodic_writeback , NULL);
+  thread_create("read_ahead", 0, filesys_read_ahead_thread, NULL);
 }
 
 
@@ -80,7 +98,7 @@ filesys_cache_access(block_sector_t disk_sector, bool write_access, bool recours
   }
 
   if (!recoursive){
-    //filesys_cache_thread_read_ahead(disk_sector + 1);
+    filesys_cache_queue_read_ahead(disk_sector + 1);
   }
   return lookup_cache_block;
 }
@@ -113,7 +131,7 @@ filesys_cache_read(block_sector_t disk_sector, void *buffer, off_t sector_offset
   lock_release(&lookup_cache_block->cache_field_lock);
 
   // read ahead
-  //filesys_cache_thread_read_ahead(disk_sector + 1);
+  filesys_cache_queue_read_ahead(disk_sector + 1);
 }
 
 
@@ -148,7 +166,7 @@ filesys_cache_write(block_sector_t disk_sector, void *buffer, off_t sector_offse
   lock_release(&lookup_cache_block->cache_field_lock);
 
   // read ahead
-  //filesys_cache_thread_read_ahead(disk_sector + 1);
+  filesys_cache_queue_read_ahead(disk_sector + 1);
 }
 
 
@@ -230,19 +248,40 @@ filesys_cache_block_evict() {
 
 /* function used by thread to read ahead */
 void
-filesys_cache_read_ahead(void *aux) {
-  block_sector_t sector = *( (block_sector_t*) aux);
-  filesys_cache_access(sector, false, true);
-  free (aux);
+filesys_read_ahead_thread(void *aux UNUSED) {
+  while (true) {
+      sema_down(&read_ahead_semaphore);
+      lock_acquire(&read_ahead_lock);
+      struct list_elem *head = list_pop_front(&read_ahead_queue);
+      read_ahead_queue_size -= 1;
+      lock_release(&read_ahead_lock);
+      struct read_ahead_entry *read_ahead_entry = list_entry(head, struct read_ahead_entry, elem);
+      filesys_cache_access(read_ahead_entry->disk_sector, false, true);
+      free(read_ahead_entry);
+    }
 }
 
 
-/* create thread which reads ahead asynchronously */
+/* function used to add entry to the read ahead list */
 void
-filesys_cache_thread_read_ahead (block_sector_t disk_sector) {
-  block_sector_t *aux = malloc(sizeof(block_sector_t));
-  *aux = disk_sector;
-  thread_create("async_read_ahead", 0, filesys_cache_read_ahead, aux);
+filesys_cache_queue_read_ahead(block_sector_t disk_sector) {
+  /* return if invalid sector */
+  if (!verify_sector(fs_device, disk_sector) && disk_sector != 0)
+      return;
+
+  /* return if queue is already full */
+  lock_acquire(&read_ahead_lock);
+  if (read_ahead_queue_size >= MAX_READ_AHEAD_SIZE) {
+    lock_release(&read_ahead_lock);
+    return;
+  }
+
+  struct read_ahead_entry *read_ahead_entry = malloc(sizeof(struct read_ahead_entry));
+  read_ahead_entry->disk_sector = disk_sector;
+  list_push_back(&read_ahead_queue, &read_ahead_entry->elem);
+  read_ahead_queue_size += 1;
+  lock_release(&read_ahead_lock);
+  sema_up(&read_ahead_semaphore);
 }
 
 
