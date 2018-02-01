@@ -84,12 +84,10 @@ dir_open_path(const char* path)
 { 
   //ASSERT(path != NULL);
   if (path == NULL || strlen(path) == 0) {
-    //TODO: open current working directory
     if (thread_current()->current_working_dir == NULL){
-      //printf("DEBUG: open path cwd is NULL \n");
+      /* CWD of current_thread has not been set yet */
       return dir_open_root();		
     } else {
-      //printf("DEBUG: open path cwd NOT NULL \n");
       /* return CWD if it was not marked as removed */
       struct dir *current_dir =  dir_reopen(thread_current()->current_working_dir);
       if (current_dir == NULL || dir_get_inode(current_dir) == NULL || inode_is_removed(dir_get_inode(current_dir)))
@@ -166,35 +164,18 @@ dir_open_path(const char* path)
       if (inode == NULL){
         goto invalid;
       }
-      struct dir *next_dir = dir_open(inode);
 
       /* traversing illegal / removed directory not allowed */
-      if (next_dir == NULL || inode_is_removed(inode)){
+      if (inode_is_removed(inode)){
         goto invalid;
       }
 
       dir_close(current_dir);
-      current_dir = next_dir;
+      current_dir = dir_open(inode);
     }
   }
 
-
   free(temp);
-
-  /* double check if inode has been removed already */
-  if (current_dir == NULL)
-  {
-    dir_close(current_dir);
-    //printf("DEBUG: result-current_dir was NULL\n");
-    return NULL;
-  }
-
-  if (current_dir == NULL || current_dir->inode == NULL)
-  {
-    dir_close(current_dir);
-    //printf("DEBUG: result-current_dir inode was NULL\n");
-    return NULL;
-  }
 
   if (current_dir == NULL || current_dir->inode == NULL || inode_is_removed(current_dir->inode))
   {

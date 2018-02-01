@@ -261,7 +261,6 @@ when the write which caused the inode extension has fully completed.
 >> structure, and what advantages and disadvantages does your
 >> structure have, compared to a multilevel index?
 
-//TODO
 
                 SUBDIRECTORIES
                 ==============
@@ -314,7 +313,35 @@ root directory.
 >> B2: Describe your code for traversing a user-specified path.  How
 >> do traversals of absolute and relative paths differ?
 
-//TODO
+We have a seperate parsing function 'parse_string_to_path_file' which
+parses a string and returns the path and the file_name as seperate 'strings'.
+Here we catch cases like multiple consecutive "/" etc.
+
+To get from a path 'string' to a opened directory struct, we use the function
+'dir_open_path'. Its starts with the special case of the string being empty.
+In this case we return the cwd directory of the thread (or NULL if it has
+been removed already, special case!)
+
+If the length is >0 we check if the first character is a '/' or not. If
+it is, we start our "iteration" using the root directory, otherwise we start
+it with the CWD of the running thread (again, if it has not been removed yet!)
+
+Now we use strtok with the token '/' to iterate over all directory names
+contained in the path. In each of these iterations we check first if the
+token is '..', in which case we set the directory to the parent of the
+directory. If the token is '.' we just continue with the next token.
+For all other cases we start a lookup in the directory of the iteration
+and look for the token string. If it is contained (and a directory +
+not removed) we switch directory to this newly found directory.
+This iteration over tokens continues until we either find a "invalid"
+(not directory, not found in directory, already marked as removed) token
+or until we iterated over all tokens successfully.
+
+If we iterated over all tokens successfully, we simply return the directory
+we ended up with (which has been opened already).
+
+For all invalid cases we simply return NULL.
+
 
 ---- SYNCHRONIZATION ----
 
@@ -323,13 +350,30 @@ root directory.
 >> should succeed, as should only one of two simultaneous attempts to
 >> create a file with the same name, and so on.
 
-//TODO: could be wrong at the momenent
 A directory is stored in an inode with the boolean 'directory' set.
 The inode has a lock called inode_directory_lock.
 Assume two processes try to remove a single file in the same directory:
 - before dir_remove verifies, that the remove file exists and actually
   removes it, it has to acquire the inode_directory_lock from the directory
-  it is trying to delete in.
+  it is trying to delete in. Holding the lock ensures that no creating
+  or removing actions is occuring in the same directory at the same time.
+  This means that the second process has to wait until the first process
+  releases the lock - which it only does after the removal is completely
+  finished.
+  When the second process finally acquires the lock, it will first check
+  if the file with "name" is contained in the directory (using lookup).
+  This will not be the case anymore because the first process already
+  removed it entirely. The lock essentially makes the lookup and removal
+  atomic.
+
+The procedure of creating a file inside a directory works exactly the
+same way, the lock is only released after creation is completely finished
+-> no races possible, because lookup + creation atomic
+
+The synchronization mentioned above also makes sure that removal + creation
+of files in the same directory don't happen at the same time, because
+this special case also introduces data races.
+
 
 >> B5: Does your implementation allow a directory to be removed if it
 >> is open by a process or if it is in use as a process's current
