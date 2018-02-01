@@ -42,6 +42,7 @@ inode_init (void)
 
 
 
+/* inode the allocate
 bool
 inode_allocate (struct inode_disk *inode_disk)
 {
@@ -102,6 +103,7 @@ inode_allocate (struct inode_disk *inode_disk)
   if (current_index == NUMBER_INDIRECT_BLOCKS){
     current_index = 0;
     indirect_index = 0;
+    double_indirect_index = 0;
     index_level = 2;
   }
 
@@ -171,7 +173,7 @@ inode_allocate_double_indirect_sectors(block_sector_t *sectors, size_t num_of_se
     filesys_cache_read(*sectors, &double_indirect_block, 0, BLOCK_SECTOR_SIZE);
   }
 
-  while ((unsigned) number_of_sectors > 0) {
+  while ((unsigned)number_of_sectors > 0) {
     size_t sectors_to_write = 0;
     if (num_of_sectors + double_indirect_iterator > NUMBER_INDIRECT_POINTERS)
       sectors_to_write = NUMBER_INDIRECT_POINTERS - double_indirect_iterator;
@@ -179,7 +181,7 @@ inode_allocate_double_indirect_sectors(block_sector_t *sectors, size_t num_of_se
       sectors_to_write = num_of_sectors;
 
     //TODO: check if 0 as start is always correct
-    inode_allocate_indirect_sectors(&double_indirect_block.block_pointers[indirect_iterator], sectors_to_write, start_index_double_indirect); 
+    inode_allocate_indirect_sectors(&double_indirect_block.block_pointers[indirect_iterator], sectors_to_write, double_indirect_iterator); 
 
     num_of_sectors -= sectors_to_write;
     indirect_iterator += 1;

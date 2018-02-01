@@ -16,6 +16,29 @@ Christian Bohnenberger <s9cnbohn@stud.uni-saarland.de>
 >> If you have any preliminary comments on your submission, notes for the
 >> TAs, or extra credit, please give them here.
 
+- Maximized interleaving for reader/writers as explained in
+  project description
+
+- Performance improvement on Read ahead by using a single thread which
+  performs read ahead instead of multiple (less strain on scheduling)
+  and also usage of a size limited 'queue' for this thread. This is
+  crucial for cache performance, because a large number of disk_blocks to
+  read ahead can only be decremental to system performance, because those read
+  aheads will very likely arrive
+  1) too late
+  2) contest possibly useful cache entries
+  This is trivial to see on an extreme example. Lets assume the queue of
+  read-ahead blocks grows to size 100. If the read-ahead-thread gets
+  scheduled now for a longer time, it will
+  1) throw away all (actually useful) cache entries
+  2) load lots of cache entries, which are very very unlikely to be of any
+  use, because they have been so long in the queue already, that if they
+  would have been used, they would have been loaded into cache manually already
+  and the read ahead arrives way 'too late'. This could either load them into
+  cache again, if they have been evicted already (or were never used anyways)
+  or reaccess, them in cache - which would cause them to be cached for longer
+  than neccessary.
+
 >> Please cite any offline or online sources you consulted while
 >> preparing your submission, other than the Pintos documentation, course
 >> text, lecture notes, and course staff.
@@ -32,8 +55,8 @@ Christian Bohnenberger <s9cnbohn@stud.uni-saarland.de>
 in inode.h:
 
 /* number of direct/indirect/double-indirect blocks */
-#define NUMBER_DIRECT_BLOCKS 118
-#define NUMBER_INDIRECT_BLOCKS 1
+#define NUMBER_DIRECT_BLOCKS 12
+#define NUMBER_INDIRECT_BLOCKS 5
 #define NUMBER_DOUBLE_INDIRECT_BLOCKS 1
 
 - These defines are used to define the number of direct and indirect blocks.
@@ -187,14 +210,13 @@ to prevent reading wrong bytes during a file extension
 >> structure?  Show your work.
 
 The maximum filesize is:
-Filesize contained in Direct Blocks:                    118 * 512 = 60,416
-Filesize contained in indirect Blocks:                  128 * 512 = 65,536
+Filesize contained in Direct Blocks:                      12 * 512 = 6,144
+Filesize contained in indirect Blocks:             5 * 128 * 512 = 327,680
 Filesize contained in doubly indirect Blocks:  128 * 128 * 512 = 8,388,608
 --------------------------------------------------------------------------
-Overall filesize:                                                8,514,560
-
-8.120117188 Mebibyte (1024 byte = 1KB)
-8.51456 Megabyte (1000 byte = 1KB)
+Overall filesize:                                                8,722,432
+8.318359375 Mebibyte (1024 byte = 1KB)
+8.722432 Megabyte (1000 byte = 1KB)
 
 
 ---- SYNCHRONIZATION ----
@@ -204,7 +226,7 @@ Overall filesize:                                                8,514,560
 
 This would happen if two processes enter inode_write_at at the same
 time and try to write after EOF.
-If both these files write into the same file they would try to extend
+If both these writes write into the same file they would try to extend
 the same inode at the same time, but this is not possible beacuse:
 - Before checking the condition if the write causes the inode to grow
   we acquire the inode_field_lock. Only one of these 2 processes will
@@ -217,10 +239,10 @@ the same inode at the same time, but this is not possible beacuse:
   which means that it is impossible for the other process to acquire it
   to perform another grow while the the first process is still working on
   the write after EOF.
-- After the process is finished with that, the second process will
-  acquire the extend lock and verify again if it the file still has to
-  grow (this is very important because the grow performed by the first
-  process might be already sufficient for the second process).
+- After the first process is finished with the entire write, the second
+  process will acquire the extend lock and verify again if it the file still
+  has to grow (this is very important because the grow performed by the first
+  process might be already sufficient for the second process aswell).
 - If the condition to grow still holds, it executes grow (from the new EOF
   which was set by the previous grow and adds the still needed blocks) 
   and continues writing after EOF like the first process did.
@@ -237,7 +259,8 @@ the same inode at the same time, but this is not possible beacuse:
 Readers and writers see different lengths during a file extension process.
 This means that the reader_length of an inode is incremented only AFTER
 a writer after EOF has completely finished while the data_length is
-increased immediatly (data_length is e.g. used for further write processes).
+increased immediatly after grow has been performed (data_length is e.g.
+used for further write processes).
 This means that A will not be able to read after EOF until B has
 finished its growing and writing after EOF completely.
 If B has finished writing it is oubviously impossible for A to read
@@ -271,20 +294,24 @@ when the write which caused the inode extension has fully completed.
 
 To support files of at least 8 Megabytes, we had to introduce at least
 1 doubly indirect pointer. After achieving the minimum required maximum
-filesize we decided, that we would like to optimize our access times of
-small files as much as possible. This meant that we wanted to use as many
-direct blocks as possible. The number we ended up with is
-- 118 direct blocks
-- 1 indirect block
+filesize we decided, that we would like to get quick access times of
+small files while making sure to not use much physical memory for inodes. 
+The number we ended up with is inspired by the unix implementation of inodes.
+- 12 direct blocks
+- 5 indirect block
 - 1 doubly indirect block
-We know that inode structures in memory now take up more space, but
-we think that this is "worth it" considering the fact that DISK I/O is
-usually the biggest bottleneck in modern systems, and physical memory
-usually does not run out nowadays (especially considering that our
-implementation is supposed to run with paging enabled).
-Our solution uses the physical space given by a block the most "optimally"
-in terms of containing the most actual file data with the least amount of
-DISK I/O neccessary to obtain it.
+Compared to the unix implementation, which also handles much larger files,
+we decided to increment the number of indirect blocks a bit, to have a smoother
+degradation from the performance of small files compared to the performance
+of very large files.
+We know that more direct blocks, would have been even more advantagous
+in terms of fast access times, but we decided against it because we built
+on top of project 2 and paging is disabled, so running out of physical
+memory is a realistic problem. We still expect most small files to fit
+into the direct blocks.
+For systems with paging enabled, we think that it would be much better
+to significantly increase the number of direct blocks, to minimize the
+bottleneck introduced by DISK I/O.
 
 
 
@@ -299,7 +326,7 @@ DISK I/O neccessary to obtain it.
 
 in inode.h:
 
-As already mentioned there are some changes in inode and inode_disk
+As already mentioned in A1 there are some changes in inode and inode_disk
 to differ between normal files and directories.
 In particular:
 - bool directory: boolean which stores if the inode is handled as normal file
@@ -348,7 +375,7 @@ To get from a path 'string' to a opened directory struct, we use the function
 In this case we return the cwd directory of the thread (or NULL if it has
 been removed already, special case!)
 
-If the length is >0 we check if the first character is a '/' or not. If
+If the length is > 0 we check if the first character is a '/' or not. If
 it is, we start our "iteration" using the root directory, otherwise we start
 it with the CWD of the running thread (again, if it has not been removed yet!)
 
@@ -411,10 +438,11 @@ in use as process's current working directory, however this is only
 possible if the directory is empty. To check if the directory is empty
 we use a function which checks if there are no entries or all entries
 are not in use.
-Once a directory is removed the inode is set to removed.
+Once a directory is removed the inode is marked to removed.
 When the process with the removed current working directory now opens an
 absolute path it is okay as long as the path doesn't contain any deleted
-directory. This is checked in "open_path" which checks the validity of every
+directories (as usual).
+This is checked in "open_path" which checks the validity of every
 directory mentioned in the absolute path and returns NULL if a single
 directory in the path is either not found or marked as removed.
 If the process tries to open or work on a relative path its corresponding
@@ -532,8 +560,8 @@ store the place we evicted in the last eviction and restart from this point
 on. However, there is a difference to the clock algorithm. We use an
 accessed counter which is incremented every time the cache block is accessed
 by a read or write operation.
-This counter is decremented every time the eviction algorithm accesses the
-cache block and we evict a cache block if the accessed counter is 0.
+This counter is decremented by 1 every time the eviction algorithm accesses
+the cache block and we evict a cache block only if the accessed counter is 0.
 This helps to keep blocks which are often accessed in the recent past in the 
 cache and prefers to evict cache blocks which are rarely accessed.
 To check and modify the access counter we first acquire the cache_field_lock
@@ -545,7 +573,7 @@ read_writer_working variable works in C5).
 If all the preconditions for eviction (accessed_counter and read_writer_working
 are 0) we check if the block is dirty and write the content back to the disk
 if necessary.
-We ensure that the filesys_cache_evict_lock is hold to ensure that only one
+We ensure that the filesys_cache_evict_lock is hold to guarantee that only one
 process can evict a cache block at a time. Furthermore the filesys_cache_lock
 which ensures that the global metadata are correctly set (e.g. next_free_cache)
 and the allocation of a cache block can be done atomically has to be hold
@@ -557,9 +585,9 @@ runs in a while true loop and is woken up every WRITE_BACK_INTERVAL ms.
 If the thread is woken up it starts to iterate over all elements in our
 cache array (starting on the last index which is still contains an cache
 entry).
-During the iteration the function and acquires the cache_field_lock of
-the cache anc checks the dirty bit. If the dirty bit of this cache entry
-is set the function writes the block back to the disk and sets the dirty
+During the iteration the function acquires the cache_field_lock of
+the cache and checks the dirty bit. If the dirty bit of this cache entry
+is set, the function writes the block back to the disk and sets the dirty
 bit to false and releases the cache_field_lock.
 After iteratting over all elements the thread sleeps WRITE_BACK_INTERVAL
 ms and starts again writing back the dirty entries to the disk (as 
@@ -569,24 +597,24 @@ already described).
 We use a read_ahead_queue which is actually a double linked list
 which allows us to push_back entries and pop at the front. 
 This is important because we want to support a FIFO order.
-Futhermore we use read_ahead_semaphore this a semaphore which 
-is initially set to 0 and incremented every times an element is
-added to the read_ahead_queue and decremented every times every
-times an element is poped from the list (later on it will be
-explained why this is important).
+Futhermore we use read_ahead_semaphore. This a semaphore which 
+is initially set to 0 and incremented every time an element is
+added to the read_ahead_queue and decremented every time  an element
+is poped from the list (later on Explanation why this is important).
 In the initialization function of our cache we start a thread which
 runs in a while true loop and which calls sema_down on read_ahead_semaphore.
-The semaphore is used to ensure that the thread doesn't wait busy and
-it can only proceed if there is an element in the queue.
-If this was succesful the read_ahead_lock is acquired and the next
-read_ahead_entry, which contains the the block sector which should be
-prefetched is contained, using pop front. Afterwards the read_ahead_lock
-is released and the block sector is prefetched to a cache block using
+The semaphore is used to ensure that the thread doesn't busy wait and
+only proceeds if there is an element contained in the queue.
+
+If decrementing the semaphore was succesful the read_ahead_lock is acquired
+and the next read_ahead_entry, which contains the the block sector which
+should be prefetched, using pop_front. Afterwards the read_ahead_lock
+is released and the block sector is written into a cache block using
 filesys_cache_access which simply loads the contens from disk to the cache
 (if not already contained in cache).
-It is important to acquire to the read_ahead_lock to ensure that it is
+It is important to acquire the read_ahead_lock to ensure that it is
 impossible that the read_ahead thread pops an element from the list
-and onther process adds an element at the same time.
+and another process adds an element at the same time.
 Furthermore the lock ensures that only one process can add an element
 to the list at a time.
 Every read and write operation adds the next block_sector to the
@@ -610,15 +638,15 @@ too long ago to the read_ahead_queue).
 >> buffer cache block, how are other processes prevented from evicting
 >> that block?
 
-Every times a process performs a read or write on a cache block the 
+Every time a process performs a read or write on a cache block the 
 read_writer_counter is incremented and decrement if the read/write
 process is finished.
 That means we use the read_writer_counter similar to the pin variable
-of project 3. But there is a minor difference whereas pinning was just
-a boolean variable read_writer_counter is counter because many processes
-can access (read or write) a cache block at the same time and only if
-no process is currently accessing the block the block is safe to be
-evicted.
+introduced during project 3. But there is a minor difference whereas
+pinning was just a boolean variable read_writer_counter is a counter
+because many processes can access (read or write) a cache block at the
+same time and only if no process is currently accessing the block the
+block is safe to be evicted.
 The variable read_writer_counter is locked by the cache_field_lock 
 every time it is modified or read.
 The eviction process checks the read_writer_counter before a block
@@ -686,8 +714,18 @@ the quarter.
 >> In your opinion, was this assignment, or any one of the three problems
 >> in it, too easy or too hard?  Did it take too long or too little time?
 
+Overall project 3 and 4 were very interresting, but took a TON of time
+(way more time neccessary to get a good grade in OS, just because of the
+projects, than in any other lecture we have previously visited)
+Maybe decrease some parts of the project or cancel project 1 entirely and
+allow for bigger time frames in which projects can be worked on.
+
 >> Did you find that working on a particular part of the assignment gave
 >> you greater insight into some aspect of OS design?
+Project 2, 3 and 4 were probably the most insightful. Project 1 was pretty
+useless, especially becaus there was no need at all to get familar with how
+pintos works. We would have done everything differntly, now that we are
+familiar with most of pintos.
 
 >> Is there some particular fact or hint we should give students in
 >> future quarters to help them solve the problems?  Conversely, did you
@@ -695,5 +733,8 @@ the quarter.
 
 >> Do you have any suggestions for the TAs to more effectively assist
 >> students in future quarters?
+GDB course at the beginning of the semester (or maybe just 1 lecture about
+it, because its quite a struggle to get familar with gdb and pintos at the
+same time, when deadlines are already fairly close).
 
 >> Any other comments?
