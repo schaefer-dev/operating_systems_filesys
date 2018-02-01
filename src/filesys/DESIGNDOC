@@ -32,8 +32,8 @@ Christian Bohnenberger <s9cnbohn@stud.uni-saarland.de>
 in inode.h:
 
 /* number of direct/indirect/double-indirect blocks */
-#define NUMBER_DIRECT_BLOCKS 1
-#define NUMBER_INDIRECT_BLOCKS 5
+#define NUMBER_DIRECT_BLOCKS 118
+#define NUMBER_INDIRECT_BLOCKS 1
 #define NUMBER_DOUBLE_INDIRECT_BLOCKS 1
 
 - These defines are used to define the number of direct and indirect blocks.
@@ -186,7 +186,15 @@ to prevent reading wrong bytes during a file extension
 >> A2: What is the maximum size of a file supported by your inode
 >> structure?  Show your work.
 
-//TODO: probably pointer are changed (NUMBER_DIRECT_POINTER,...)
+The maximum filesize is:
+Filesize contained in Direct Blocks:                    118 * 512 = 60,416
+Filesize contained in indirect Blocks:                  128 * 512 = 65,536
+Filesize contained in doubly indirect Blocks:  128 * 128 * 512 = 8,388,608
+--------------------------------------------------------------------------
+Overall filesize:                                                8,514,560
+
+8.120117188 Mebibyte (1024 byte = 1KB)
+8.51456 Megabyte (1000 byte = 1KB)
 
 
 ---- SYNCHRONIZATION ----
@@ -260,6 +268,24 @@ when the write which caused the inode extension has fully completed.
 >> indirect blocks?  If not, why did you choose an alternative inode
 >> structure, and what advantages and disadvantages does your
 >> structure have, compared to a multilevel index?
+
+To support files of at least 8 Megabytes, we had to introduce at least
+1 doubly indirect pointer. After achieving the minimum required maximum
+filesize we decided, that we would like to optimize our access times of
+small files as much as possible. This meant that we wanted to use as many
+direct blocks as possible. The number we ended up with is
+- 118 direct blocks
+- 1 indirect block
+- 1 doubly indirect block
+We know that inode structures in memory now take up more space, but
+we think that this is "worth it" considering the fact that DISK I/O is
+usually the biggest bottleneck in modern systems, and physical memory
+usually does not run out nowadays (especially considering that our
+implementation is supposed to run with paging enabled).
+Our solution uses the physical space given by a block the most "optimally"
+in terms of containing the most actual file data with the least amount of
+DISK I/O neccessary to obtain it.
+
 
 
                 SUBDIRECTORIES
@@ -583,6 +609,7 @@ too long ago to the read_ahead_queue).
 >> C5: When one process is actively reading or writing data in a
 >> buffer cache block, how are other processes prevented from evicting
 >> that block?
+
 Every times a process performs a read or write on a cache block the 
 read_writer_counter is incremented and decrement if the read/write
 process is finished.
@@ -601,10 +628,51 @@ be evicted.
 >> C6: During the eviction of a block from the cache, how are other
 >> processes prevented from attempting to access the block?
 
+In the evict process, we iterate over all the array of cache entries.
+Before we decide to evict a block, we first acquire the cache_field_lock
+for this specific cache entry. Afterwards we verify that read_writer_counter
+equals to zero. This can not be the case if any process is currently
+reading or writing or trying to read or write this cache entry because
+on entry in reading/writing the cache_field_lock is always acquired first
+and the read_writer_counter incremented by one, which is only decremented
+again if the writing/reading has been finished. This means that during an
+evict no new reader can entry, because it can not acquire the cache_field_lock
+and also no reader or writer can currently work on this cache entry because
+in that case read_writer_counter would have to be greater than zero. The
+cache_field_lock is held until the cache entry was completely evicted and
+replaced by its new entry.
+
 ---- RATIONALE ----
 
 >> C7: Describe a file workload likely to benefit from buffer caching,
 >> and workloads likely to benefit from read-ahead and write-behind.
+
+Likely to benefit from buffer caching in general:
+Any workload which often accesses a specific part of storage will profit
+heavily because the often accessed blocks will stay in cache, which will
+siginificantly reduce the access time. For example a small executable which
+is used by multiple processes and does not perform lots of I/O will stay
+in cache and will not be loaded from disk all the time.
+
+Read Ahead:
+Reading or writing a larger file sequentially is improved significantly
+by read-ahead. The reason why this is the case, is because the next block
+we try to read/write is already asynchroniously loaded into cache. So the
+process doesn't have to wait for the DISK I/O to complete.
+
+Write Behind:
+Assume a scenarion in which we rarely write in a file. Periodic writeback
+asynchroniously writes these changes back to disk and in the case of an
+eviction, the process evicting this cache block does not have write back
+to disk again which speeds up the eviction process a lot.
+Also write behind is very advantageous if you have a workload in which you
+very frequently write to a file. The file will stay in cache and "accumalate"
+the writes and not query a DISK I/O on every single small write. This reduces
+the bottleneck of the I/O access a lot, because the changes are only written
+back asynchroniously during a periodic writeback (which happens farely rarely)
+or during eviction.
+We trade a lot of small writes to very few bigger writes, which is a lot
+faster mainly because of access/seek times.
 
                SURVEY QUESTIONS
                ================
