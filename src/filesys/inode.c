@@ -221,6 +221,7 @@ inode_grow(struct inode *inode, struct inode_disk *inode_disk, off_t size, off_t
 
 
   if (inode != NULL) {
+    lock_acquire(&inode->inode_field_lock);
     length = inode->data_length;
     index_level = inode->index_level;
     direct_pointers = inode->direct_pointers;
@@ -229,6 +230,7 @@ inode_grow(struct inode *inode, struct inode_disk *inode_disk, off_t size, off_t
     current_index = inode->current_index;
     indirect_index = inode->indirect_index;
     double_indirect_index = inode->double_indirect_index;
+    lock_release(&inode->inode_field_lock);
   } else {
     length = inode_disk->length;
     index_level = inode_disk->index_level;
@@ -327,10 +329,12 @@ inode_grow(struct inode *inode, struct inode_disk *inode_disk, off_t size, off_t
 
   /* updating struct values */
   if (inode != NULL) {
+    lock_acquire(&inode->inode_field_lock);
     inode->index_level = index_level;
     inode->current_index = current_index;
     inode->indirect_index = indirect_index;
     inode->double_indirect_index = double_indirect_index;
+    lock_release(&inode->inode_field_lock);
   } else {
     inode_disk->index_level = index_level;
     inode_disk->current_index = current_index;
@@ -801,19 +805,28 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
   new_length_after_extend = inode->data_length;
   if (size + offset > inode->data_length){
     lock_acquire(&inode->inode_extend_lock);
+    /* recheck condition in case somebody else already
+       took care of the growing work */
+    if (! (size + offset > inode->data_length)){
+      lock_release(&inode->inode_extend_lock);
+      goto skip_grow;
+    }
+
     lock_release(&inode->inode_field_lock);
-    if (!inode_grow (inode, NULL, size, offset)){
+    if (inode_grow (inode, NULL, size, offset)){
+      inode->data_length = size + offset;
+      new_length_after_extend = size + offset;
+      was_extended = true;
+    } else {
       lock_release(&inode->inode_extend_lock);
       return 0;
     }
-    inode->data_length = size + offset;
-    new_length_after_extend = size + offset;
-    was_extended = true;
     // TODO don't extend length in grow, do it after write is complete!
     //if (!debug_verify_inode(inode, NULL))
     //  printf("DEBUG: Above fails caused by fail after grow \n\n");
     //TODO: release lock
   } else {
+  skip_grow:
     lock_release(&inode->inode_field_lock);
   }
 
