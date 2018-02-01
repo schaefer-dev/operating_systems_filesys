@@ -261,6 +261,8 @@ when the write which caused the inode extension has fully completed.
 >> structure, and what advantages and disadvantages does your
 >> structure have, compared to a multilevel index?
 
+//TODO
+
                 SUBDIRECTORIES
                 ==============
 
@@ -270,10 +272,49 @@ when the write which caused the inode extension has fully completed.
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+in inode.h:
+
+As already mentioned there are some changes in inode and inode_disk
+to differ between normal files and directories.
+In particular:
+- bool directory: boolean which stores if the inode is handled as normal file
+or a directory (true if inode is directory)
+- block_sector_t parent: stores the block_sector of the parent to open the
+parent directory (only used if inode is directory)
+
+- struct lock inode_directory_lock: lock to synchronise removing and 
+adding of directories to prevent adding 2 directories at a time etc.
+
+
+in thread.h:
+/* Struct to save open files of a thread in a linked list */
+struct file_entry
+  {
+    struct file *file;
+    struct dir *dir;
+    int fd;
+    struct list_elem elem; 
+  };
+- A file_entry now also contains a struct dir entry to differ between open
+files and open directories.
+
+
+in struct thread added:
+
+/* stores the current working directory of the process */
+- struct dir *current_working_dir
+
+Current_working_dir stores the current working directory of the
+process which is initially either the parent working directory or the
+root directory.
+
+
 ---- ALGORITHMS ----
 
 >> B2: Describe your code for traversing a user-specified path.  How
 >> do traversals of absolute and relative paths differ?
+
+//TODO
 
 ---- SYNCHRONIZATION ----
 
@@ -282,10 +323,32 @@ when the write which caused the inode extension has fully completed.
 >> should succeed, as should only one of two simultaneous attempts to
 >> create a file with the same name, and so on.
 
+//TODO: could be wrong at the momenent
+A directory is stored in an inode with the boolean directory set.
+The inode has a lock called inode_directory_lock.
+Assume two processes try to remove a single file:
+- 
+
 >> B5: Does your implementation allow a directory to be removed if it
 >> is open by a process or if it is in use as a process's current
 >> working directory?  If so, what happens to that process's future
 >> file system operations?  If not, how do you prevent it?
+
+Our implementation allows to remove a open directory even if it is
+in use as process's current working directory, however this is only
+possible if the directory is empty. To check if the directory is empty
+we use a function which checks if there are no entries or all entries
+are not in use.
+Once a directory is removed the inode is set to removed.
+When the process with the removed current working directory now opens an
+absolute path it is okay as long as the path doesn't contain any deleted
+directory. This is checked in "open_path" which checks the validity of every
+directory mentioned in the absolute path and returns NULL if a single
+directory in the path is either not found or marked as removed.
+If the process tries to open or work on a relative path its corresponding
+directory inode (which is received by its current working directory) is
+checked for validity. This means we check if the removed flag in the inode
+is set and if this is the case the action which used the relative path fails.
 
 ---- RATIONALE ----
 
@@ -301,12 +364,120 @@ when the write which caused the inode extension has fully completed.
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+in cache.h:
+/* defines the maximal number of cache entries */
+#define CACHE_SIZE 64
+
+/* write back every second */
+#define WRITE_BACK_INTERVAL 1000
+
+/* lock to lock the complete cache used e.g. to ensure that create is
+atomic and the is no race to set the next free cache*/
+struct lock filesys_cache_lock;
+
+/* used to ensure that only 1 thread at a time can evict a page */
+struct lock filesys_cache_evict_lock;
+
+struct cache_block {
+  /* METADATA */
+  /* inidicates if the cache block is accessed */
+  bool accessed;
+  /* inidicates if the cache block is dirty (used for write behind) */ 
+  bool dirty;
+  /* counts how often the page is accessed increment on every read, write and
+  access */ 
+  int accessed_counter;
+
+  /* indicates if a reader or writer is currently using the block and how many;
+  increment at start of read/write and decrement on exit of read/write */
+  int read_writer_working;
+
+  /* lock used to lock metadata updates */
+  struct lock cache_field_lock;
+
+  /* Cached content + disk sector */
+  uint8_t cached_content[BLOCK_SECTOR_SIZE];
+  block_sector_t disk_sector;
+};
+
+/* structure(array) to store cache blocks */
+struct cache_block *cache_array[CACHE_SIZE];
+
+/* indicates the next free block in the cache */
+int next_free_cache;
+
+/* points to the block which is next considered in clock algorithm during
+eviction */
+int next_evict_cache;
+
+in cache.c:
+
+/* defines the maximal number of pages which can be inserted in read ahead
+queue */
+#define MAX_READ_AHEAD_SIZE 32
+
+/* lock to synchronise updates of read ahead queue size */
+struct lock read_ahead_lock;
+
+/* list to store the next sectors to prefetch in cache */
+struct list read_ahead_queue;
+
+/* semaphore to indicate if there are still elements in the
+read ahead queue; used to synchronise insert and pop */
+struct semaphore read_ahead_semaphore;
+
+/* stores the number of elements in the read ahead queue */
+int read_ahead_queue_size;
+
+/* defines a read ahead entry which entails the block sector
+which should be prefetched and list_elem to store them in the list */
+struct read_ahead_entry {
+  block_sector_t disk_sector;
+  struct list_elem elem;
+};
+
 ---- ALGORITHMS ----
 
 >> C2: Describe how your cache replacement algorithm chooses a cache
 >> block to evict.
 
+We use an algorithm similar to the clock algorithm, that means we always
+store the place we evicted in the last eviction and restart from this point
+on. However, there is a difference to the clock algorithm. We use an
+accessed counter which is incremented every time the cache block is accessed
+by a read or write operation.
+This counter is decremented every time the eviction algorithm accesses the
+cache block and we evict a cache block if the accessed counter is 0.
+This helps to keep blocks which are often accessed in the recent past in the 
+cache and prefers to evict cache blocks which are rarely accessed.
+To check and modify the access counter we first acquire the cache_field_lock
+of the particular cache block and ensure correct synchronisation because
+another process could change the counter if the lock is not held.
+Futhermore, we check if the read_writer_working variable is 0 because
+otherwise we cannot evict this block (more detailed description how the
+read_writer_working variable works in C5).
+If all the preconditions for eviction (accessed_counter and read_writer_working
+are 0) we check if the block is dirty and write the content back to the disk
+if necessary.
+We ensure that the filesys_cache_evict_lock is hold to ensure that only one
+process can evict a cache block at a time. Furthermore the filesys_cache_lock
+which ensures that the global metadata are correctly set (e.g. next_free_cache)
+and the allocation of a cache block can be done atomically has to be hold
+since eviction performs a cache allocation in some sense.
+
 >> C3: Describe your implementation of write-behind.
+In the initialization function of our cache we start a process which
+runs in a while loop and is woken up every WRITE_BACK_INTERVAL ms.
+If the thread is woken up it starts to iterate over all elements in our
+cache array (starting on the last index which is still contains an cache
+entry).
+During the iteration the function and acquires the cache_field_lock of
+the cache anc checks the dirty bit. If the dirty bit of this cache entry
+is set the function writes the block back to the disk and sets the dirty
+bit to false and releases the cache_field_lock.
+After iteratting over all elements the thread sleeps WRITE_BACK_INTERVAL
+ms and starts again writing back the dirty entries to the disk (as 
+already described).
 
 >> C4: Describe your implementation of read-ahead.
 
@@ -315,6 +486,20 @@ when the write which caused the inode extension has fully completed.
 >> C5: When one process is actively reading or writing data in a
 >> buffer cache block, how are other processes prevented from evicting
 >> that block?
+Every times a process performs a read or write on a cache block the 
+read_writer_counter is incremented and decrement if the read/write
+process is finished.
+That means we use the read_writer_counter similar to the pin variable
+of project 3. But there is a minor difference whereas pinning was just
+a boolean variable read_writer_counter is counter because many processes
+can access (read or write) a cache block at the same time and only if
+no process is currently accessing the block the block is safe to be
+evicted.
+The variable read_writer_counter is locked by the cache_field_lock 
+every time it is modified or read.
+The eviction process checks the read_writer_counter before a block
+is evited and only if the read_writer_counter is 0 the block will
+be evicted.
 
 >> C6: During the eviction of a block from the cache, how are other
 >> processes prevented from attempting to access the block?
