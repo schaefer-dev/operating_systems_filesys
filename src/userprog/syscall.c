@@ -41,7 +41,7 @@ unsigned syscall_tell(int fd);
 void syscall_close(int fd);
 struct list_elem* get_list_elem(int fd);
 bool syscall_mkdir(const char *dir_name);
-bool syscall_chdir(const char *dir_name);
+bool syscall_chdir(const char *name);
 bool syscall_readdir(int fd, char *dir_name);
 bool syscall_isdir(int fd);
 int syscall_inumber(int fd);
@@ -102,7 +102,8 @@ syscall_handler (struct intr_frame *f UNUSED)
       {
         char *file_name= *((char**) read_argument_at_index(f,0));
         validate_pointer(file_name);
-        unsigned initial_size = *((unsigned*) read_argument_at_index(f,sizeof(char*)));
+        unsigned initial_size = *((unsigned*)
+                                  read_argument_at_index(f,sizeof(char*)));
         f->eax = syscall_create(file_name, initial_size);
         break;
       }
@@ -232,7 +233,9 @@ syscall_handler (struct intr_frame *f UNUSED)
 void
 validate_pointer(const void* pointer){
   uint32_t *pagedir = thread_current()->pagedir;
-  if (pointer == NULL || !is_user_vaddr(pointer) || pagedir_get_page(pagedir, pointer)==NULL){
+  if (pointer == NULL || !is_user_vaddr(pointer) ||
+      pagedir_get_page(pagedir, pointer)==NULL)
+  {
     syscall_exit(-1);
   }
 }
@@ -299,7 +302,8 @@ syscall_exit(const int exit_type){
       /* parent is still running -> has to store information */
       terminating_child->terminated = true;
       terminating_child->exit_status = exit_type;
-      cond_signal(&terminating_child->terminated_cond, &terminating_child->child_process_lock);
+      cond_signal(&terminating_child->terminated_cond,
+                  &terminating_child->child_process_lock);
       lock_release(&terminating_child->child_process_lock);
     } else {
       /* parent is already terminated -> free ressources */
@@ -567,7 +571,6 @@ get_file_entry(int fd){
   return NULL;
 }
 
-
 /* Changes the next byte to be read or written in the file with filedescriptor
    fd to the position position. */
 void syscall_seek(int fd, unsigned position){
@@ -577,7 +580,6 @@ void syscall_seek(int fd, unsigned position){
   }
   file_seek(file, position);
 }
-
 
 /* Returns the position of the next byte to be read or written in the file with
    file-descriptor fd */
@@ -590,7 +592,6 @@ unsigned syscall_tell(int fd){
   return pos;
 }
 
-
 /* Closes the file with filedescriptor fd */
 void syscall_close(int fd){
   struct list_elem *element = get_list_elem(fd);
@@ -600,7 +601,6 @@ void syscall_close(int fd){
   }
   struct file_entry *f = list_entry (element, struct file_entry, elem);
 
-  // TODO think about this, if file doesnt have to always be closed!
   if (f->dir != NULL)
     dir_close(f->dir);
   else if (f->file)
@@ -624,14 +624,15 @@ bool syscall_mkdir(const char *dir_name)
 {
   bool success;
 
-  // TODO check if size 0 is fine, but should be ok
   success = filesys_create(dir_name, 0, true);
 
   return success;
 }
 
+/* Reads a directory entry from file descriptor fd 
+   stores the file name inside dir name. */
 bool
-syscall_readdir(int fd, char *dir_name)
+syscall_readdir(int fd, char *name)
 {
   bool success = false;
   struct file_entry *file_entry = get_file_entry(fd);
@@ -643,16 +644,13 @@ syscall_readdir(int fd, char *dir_name)
   if (inode == NULL || !inode_is_directory(inode) || inode_is_removed(inode))
     goto done;
 
-  // TODO not sure how to get dir here correctly, might be wrong
-  // struct dir *dir = dir_open(inode);
-  
-  success = dir_readdir(dir, dir_name);
-
+  success = dir_readdir(dir, name);
 
  done:
   return success;
 }
 
+/* returns true if fd belongs to an directory, false otherwise */
 bool
 syscall_isdir(int fd)
 {
@@ -664,9 +662,7 @@ syscall_isdir(int fd)
     goto done;
 
   if (file_entry->dir == NULL){
-    /* should be case file but to the sure */
     success = false;
-    /* should not be needed */
     struct file *file = file_entry->file;
     ASSERT(file != NULL);
     struct inode *inode = file_get_inode(file);
@@ -689,27 +685,24 @@ syscall_isdir(int fd)
   return success;
 }
 
+/* returns the inode number of the inode belonging to file descriptor
+   fd */
 int
 syscall_inumber(int fd)
 {
   int inumber = -1;
 
   struct file_entry *file_entry = get_file_entry(fd);
-
   if(file_entry == NULL)
     goto done;
-
   struct inode *inode = NULL;
-
   if (file_entry->file != NULL){
     inode = file_get_inode(file_entry->file);
   } else if (file_entry->dir != NULL){
     inode = dir_get_inode(file_entry->dir);
   }
-
   if (inode == NULL || inode_is_removed(inode))
     goto done;
-
   inumber = inode_get_inumber(inode);
 
  done:

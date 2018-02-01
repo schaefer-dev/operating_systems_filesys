@@ -509,7 +509,6 @@ byte_to_sector (const struct inode *inode, off_t pos)
   ASSERT (inode != NULL);
 
   if (pos >= inode->data_length){
-    //printf("DEBUG: byte_to_sector returned -1, because outside length\n");
     return -1;
   }
 
@@ -625,8 +624,7 @@ inode_create (block_sector_t sector, off_t length, bool directory)
         } 
       else
         {
-          printf("DEBUG: inode_allocate failed!\n");
-
+          success = false;
         }
       free (disk_inode);
     }
@@ -750,7 +748,6 @@ inode_writeback (struct inode *inode)
     {
       free_map_release (inode->sector, 1);
       inode_deallocate(inode);
-      // TODO: think about removing entries from cache here
     }
   else
     { 

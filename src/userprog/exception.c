@@ -152,7 +152,6 @@ page_fault (struct intr_frame *f)
   user = (f->error_code & PF_U) != 0;
 
   /* notify parent about syscall */
-  // TODO check if user and page not user or if pointer null or if writing to read only page
 
   uint32_t *pagedir = thread_current()->pagedir;
   if ((fault_addr == NULL) || (user && !is_user_vaddr(fault_addr)) || (pagedir_get_page(pagedir, fault_addr)==NULL) || (!not_present))
