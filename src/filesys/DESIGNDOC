@@ -324,10 +324,12 @@ root directory.
 >> create a file with the same name, and so on.
 
 //TODO: could be wrong at the momenent
-A directory is stored in an inode with the boolean directory set.
+A directory is stored in an inode with the boolean 'directory' set.
 The inode has a lock called inode_directory_lock.
-Assume two processes try to remove a single file:
-- 
+Assume two processes try to remove a single file in the same directory:
+- before dir_remove verifies, that the remove file exists and actually
+  removes it, it has to acquire the inode_directory_lock from the directory
+  it is trying to delete in.
 
 >> B5: Does your implementation allow a directory to be removed if it
 >> is open by a process or if it is in use as a process's current
@@ -354,6 +356,20 @@ is set and if this is the case the action which used the relative path fails.
 
 >> B6: Explain why you chose to represent the current directory of a
 >> process the way you did.
+
+The current working directory is a refernce of type dir contained in
+every thread. The dir contains a reference to the inode, which contains
+the directory data. It makes sense to save it in thread, mainly because
+you can easily set it in thread_create (to the parents directory, if it
+exists, NULL otherwise). This is important because the root directory does
+not exist yet, for the first thread which is being created. It's the
+easiest location to access the parent directory, which starts the thread
+using the exec syscall.
+Also this makes it very convenient to reopen the current working directory
+in thread_create and to close it again in process_exit (because only processes
+can have current working directories). This way we don't have to work
+on inodes, but can instead use functions which handle just directories,
+which is a nice abstraction.
 
                  BUFFER CACHE
                  ============
