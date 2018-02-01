@@ -22,7 +22,8 @@
 #include "userprog/syscall.h"
 
 static thread_func start_process NO_RETURN;
-static bool load (const char *cmdline, void (**eip) (void), void **esp, char* argument_buffer, int argcount);
+static bool load (const char *cmdline, void (**eip) (void), void **esp,
+ char* argument_buffer, int argcount);
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -66,7 +67,6 @@ process_execute (const char *file_name)
 static void
 start_process (void *file_name_)
 {
-  //printf("DEBUG: process start called\n");
   char *file_name = file_name_;
   struct intr_frame if_;
   bool success;
@@ -104,16 +104,20 @@ start_process (void *file_name_)
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
 
-  success = load (file_name, &if_.eip, &if_.esp, current_argument_space, argcount);
+  success = load (file_name, &if_.eip, &if_.esp, current_argument_space,
+   argcount);
 
-  /* update the child process structure of this process */
   struct thread *child_thread = thread_current();
+  /* check if the current working directory is NULL if this is the case
+  the parent working dir was not set and root is added as current 
+  working dir */
   struct child_process *child_process = child_thread->child_process;
   if (!child_thread->current_working_dir){
     child_thread->current_working_dir = dir_open_root();
   }
   lock_acquire(&child_process->child_process_lock);
 
+  /* update the child process structure of this process */
   /* set load value of child_process after load is finished */
   if (success){
     child_process->successfully_loaded = LOAD_SUCCESS;
@@ -318,7 +322,8 @@ static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
    and its initial stack pointer into *ESP.
    Returns true if successful, false otherwise. */
 bool
-load (const char *file_name, void (**eip) (void), void **esp, char* argument_buffer, int argcount) 
+load (const char *file_name, void (**eip) (void), void **esp,
+ char* argument_buffer, int argcount) 
 {
   struct thread *t = thread_current ();
   struct Elf32_Ehdr ehdr;
@@ -337,7 +342,6 @@ load (const char *file_name, void (**eip) (void), void **esp, char* argument_buf
   file = filesys_open (file_name);
   if (file == NULL) 
     {
-      //TODO file_close has an issue, if its passed null
       file_close (file);
       printf ("load: %s: open failed\n", file_name);
       goto done; 
