@@ -159,22 +159,24 @@ If both these files write into the same file they would try to extend
 the same inode at the same time, but this is not possible beacuse:
 - Before checking the condition if the write causes the inode to grow
   we acquire the inode_field_lock. Only one of these 2 processes will
-  be able to acquire this lock and then notice than a grow has to be
+  be able to acquire this lock and then notice that a grow has to be
   performed.
 - Before releasing the inode_field_lock (which would allow
   the other process to check the grow condition) we acquire the
   inode_extend_lock. This lock will be held until the entire grow
-  process is performed, which means that it is impossible for the
-  other process to acquire it to perform another grow while the the first
-  process is still working on the write after EOF.
+  process is performed (includes writing the content to the block),
+  which means that it is impossible for the other process to acquire it
+  to perform another grow while the the first process is still working on
+  the write after EOF.
 - After the process is finished with that, the second process will
   acquire the extend lock and verify again if it the file still has to
   grow (this is very important because the grow performed by the first
   process might be already sufficient for the second process).
-- If the condition to grow still holds, it exectures grow and continues
-  writing after EOF like the first process did. If it doesn't have to grow
-  anymore it releases the inode_extend_lock right away and continues like
-  a normal writer would. 
+- If the condition to grow still holds, it executes grow (from the new EOF
+  which was set by the previous grow and adds the still needed blocks) 
+  and continues writing after EOF like the first process did.
+  If it doesn't have to grow anymore it releases the inode_extend_lock right
+  away and continues like a normal writer would. 
 
 >> A4: Suppose processes A and B both have file F open, both
 >> positioned at end-of-file.  If A reads and B writes F at the same
@@ -186,7 +188,7 @@ the same inode at the same time, but this is not possible beacuse:
 Readers and writers see different lengths during a file extension process.
 This means that the reader_length of an inode is incremented only AFTER
 a writer after EOF has completely finished while the data_length is
-increased immediatly.
+increased immediatly (data_length is e.g. used for further write processes).
 This means that A will not be able to read after EOF until B has
 finished its growing and writing after EOF completely.
 If B has finished writing it is oubviously impossible for A to read
@@ -205,7 +207,7 @@ question above. Generally the only case in which somebody has to wait is
 the following:
 1) Writers writing after EOF have to wait until the writer who extends the
    inode to the neccessary length for its write has finished growing the inode
-   + writing his data after EOF.
+   and writing his data after EOF.
 
 Additionally as explained in A4 Readers can only read/see data after EOF
 when the write which caused the inode extension has fully completed.
