@@ -466,8 +466,8 @@ and the allocation of a cache block can be done atomically has to be hold
 since eviction performs a cache allocation in some sense.
 
 >> C3: Describe your implementation of write-behind.
-In the initialization function of our cache we start a process which
-runs in a while loop and is woken up every WRITE_BACK_INTERVAL ms.
+In the initialization function of our cache we start a thread which
+runs in a while true loop and is woken up every WRITE_BACK_INTERVAL ms.
 If the thread is woken up it starts to iterate over all elements in our
 cache array (starting on the last index which is still contains an cache
 entry).
@@ -480,6 +480,43 @@ ms and starts again writing back the dirty entries to the disk (as
 already described).
 
 >> C4: Describe your implementation of read-ahead.
+We use a read_ahead_queue which is actually a double linked list
+which allows us to push_back entries and pop at the front. 
+This is important because we want to support a FIFO order.
+Futhermore we use read_ahead_semaphore this a semaphore which 
+is initially set to 0 and incremented every times an element is
+added to the read_ahead_queue and decremented every times every
+times an element is poped from the list (later on it will be
+explained why this is important).
+In the initialization function of our cache we start a thread which
+runs in a while true loop and which calls sema_down on read_ahead_semaphore.
+The semaphore is used to ensure that the thread doesn't wait busy and
+it can only proceed if there is an element in the queue.
+If this was succesful the read_ahead_lock is acquired and the next
+read_ahead_entry, which contains the the block sector which should be
+prefetched is contained, using pop front. Afterwards the read_ahead_lock
+is released and the block sector is prefetched to a cache block using
+filesys_cache_access which simply loads the contens from disk to the cache
+(if not already contained in cache).
+It is important to acquire to the read_ahead_lock to ensure that it is
+impossible that the read_ahead thread pops an element from the list
+and onther process adds an element at the same time.
+Furthermore the lock ensures that only one process can add an element
+to the list at a time.
+Every read and write operation adds the next block_sector to the
+read_ahead_queue by first checking if the block is within the block
+size of the fs_device and afterwards acquiring the read_ahead_lock
+to safely adding the read_ahead_entry with the corresponding
+block sector to the read_ahead_queue.
+
+Furthermore, we check the current length of the read_ahead_queue
+and we deny further insertions if the length is already half of the
+cache size because in this case the thread cannot prefetch all the
+needed elements fast enough to the cache and read ahead could
+potentially worse the performance since it replaces cache entries
+(which are potentially needed by some processes) with some old
+block sectors which are no longer needed (because they are added
+too long ago to the read_ahead_queue).
 
 ---- SYNCHRONIZATION ----
 
